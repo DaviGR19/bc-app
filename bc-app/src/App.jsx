@@ -734,126 +734,6 @@ export default function BCApp() {
   if(!user) return <AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
   if(screen==="profile") return <ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
 
-  // ── Side menu helper — renderizado sobre qualquer tela ──
-  function SideMenuOverlay() {
-    if(!sideMenu) return null;
-    return (
-      <div style={{ position:"fixed",inset:0,zIndex:200 }} onClick={()=>setSideMenu(false)}>
-        <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.35)" }}/>
-        <div onClick={e=>e.stopPropagation()} style={{ position:"absolute",top:0,right:0,bottom:0,width:290,background:C.white,boxShadow:"-4px 0 24px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column",animation:"slideIn 0.22s ease" }}>
-          <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
-          <div style={{ background:C.blue,padding:"32px 20px 24px" }}>
-            <Avatar user={user} size={54}/>
-            <div style={{ color:C.white,fontWeight:700,fontSize:16,marginTop:10 }}>{user.name}</div>
-            <div style={{ color:"rgba(255,255,255,0.7)",fontSize:12,marginTop:3 }}>{getRoleLabel(user.role)} · {user.area}</div>
-          </div>
-          <div style={{ flex:1,overflowY:"auto",padding:"8px 0" }}>
-            <button onClick={()=>{setSideMenu(false);setScreen("profile");}} style={{ width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
-              <div style={{ width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>{Ic.person(C.blue)}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:14,fontWeight:600,color:C.text }}>Meu Perfil</div>
-                <div style={{ fontSize:12,color:C.sub }}>Editar informações e foto</div>
-              </div>
-              {Ic.chevR()}
-            </button>
-            <Divider/>
-            <button onClick={()=>{setSideMenu(false);setScreen("members");if(!membersLoaded)loadMembers();}} style={{ width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
-              <div style={{ width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:14,fontWeight:600,color:C.text }}>Membros</div>
-                <div style={{ fontSize:12,color:C.sub }}>Ver todos os participantes</div>
-              </div>
-              {Ic.chevR()}
-            </button>
-          </div>
-          <div style={{ padding:"12px 20px 36px",borderTop:`1px solid ${C.border}` }}>
-            <button onClick={logout} style={{ width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#FEF2F2",border:"none",borderRadius:10,cursor:"pointer" }}>
-              {Ic.logout(C.red)}
-              <span style={{ fontSize:14,fontWeight:600,color:C.red }}>Sair da conta</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Tela de membros ──
-  if(screen==="members") return (
-    <div style={{ minHeight:"100vh",background:C.bg,fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
-      <style>{`*{box-sizing:border-box;} button{font-family:inherit;} select{font-family:inherit;} ::-webkit-scrollbar{display:none;}`}</style>
-      <SideMenuOverlay/>
-      <div style={{ background:C.white,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:40 }}>
-        <button onClick={()=>setScreen("app")} style={{ background:"none",border:"none",cursor:"pointer",padding:4,display:"flex" }}>{Ic.back()}</button>
-        <span style={{ fontSize:17,fontWeight:700 }}>Membros</span>
-        <span style={{ marginLeft:"auto",fontSize:12,color:C.muted }}>{members.length} pessoas</span>
-        <button onClick={()=>setSideMenu(true)} style={{ background:"none",border:"none",cursor:"pointer",padding:0,marginLeft:8 }}>
-          <Avatar user={user} size={32}/>
-        </button>
-      </div>
-
-      {!membersLoaded&&<Spinner/>}
-
-      {/* Agrupar por role */}
-      {["presidente","vice","diretor","membro"].map(role=>{
-        const group = members.filter(m=>m.role===role);
-        if(!group.length) return null;
-        const roleLabels = {presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
-        return (
-          <div key={role}>
-            <div style={{ padding:"20px 20px 8px" }}>
-              <span style={{ fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase" }}>{roleLabels[role]}</span>
-            </div>
-            <div style={{ margin:"0 20px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden" }}>
-              {group.map((m,i)=>(
-                <div key={m.id}>
-                  <div style={{ padding:"14px 16px" }}>
-                    <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom: user.role==="presidente"&&m.id!==user.id?10:0 }}>
-                      <Avatar user={m} size={40}/>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:14,fontWeight:600 }}>{m.name}</div>
-                        <div style={{ fontSize:12,color:C.sub,marginTop:1 }}>{m.area}</div>
-                      </div>
-                      <span style={{ fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99,background:C.blueSoft,color:C.blue }}>
-                        {getRoleLabel(m.role)}
-                      </span>
-                    </div>
-
-                    {/* Edição de cargo — só presidente, e não pode editar a si mesmo */}
-                    {user.role==="presidente"&&m.id!==user.id&&(
-                      <div style={{ display:"flex",gap:8,marginTop:0 }}>
-                        <select defaultValue={m.role}
-                          onChange={async e=>{
-                            await updateMemberRole(m.id, e.target.value, m.area);
-                          }}
-                          style={{ flex:1,padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,color:C.text,background:C.bg }}>
-                          <option value="membro">Assessor(a)</option>
-                          <option value="diretor">Diretor(a)</option>
-                          <option value="vice">Vice-Presidente</option>
-                          <option value="presidente">Presidente</option>
-                        </select>
-                        <select defaultValue={m.area}
-                          onChange={async e=>{
-                            await updateMemberRole(m.id, m.role, e.target.value);
-                          }}
-                          style={{ flex:2,padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,color:C.text,background:C.bg }}>
-                          {["Presidência",...AREAS].map(a=><option key={a}>{a}</option>)}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  {i<group.length-1&&<Divider m={16}/>}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-      <div style={{ height:32 }}/>
-    </div>
-  );
-
   if(screen==="demanda"&&selectedD){
     const d=demandas.find(x=>x.id===selectedD);
     if(d) return <DemandaDetail demanda={d} canEdit={canManage(user)}
@@ -877,6 +757,7 @@ export default function BCApp() {
   const TAB_LABEL={inicio:"Painel",demandas:"Demandas",calendario:"Agenda",materiais:"Materiais"};
 
   return (
+    <>
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",maxWidth:430,margin:"0 auto",color:C.text }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
@@ -888,8 +769,6 @@ export default function BCApp() {
         select{font-family:inherit;}
       `}</style>
       <input ref={uploadRef} type="file" style={{display:"none"}} onChange={handleUpload}/>
-
-      <SideMenuOverlay/>
 
       {/* Header */}
       <div style={{ position:"sticky",top:0,zIndex:40,background:C.white,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
@@ -1098,5 +977,7 @@ export default function BCApp() {
         {TABS.map(t=><NavTab key={t.id} tab={t.id} active={tab===t.id} icon={t.icon} label={t.label} onClick={()=>setTab(t.id)}/>)}
       </div>
     </div>
+    {sideMenuJSX}
+    </>
   );
 }
