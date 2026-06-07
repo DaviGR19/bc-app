@@ -734,14 +734,63 @@ export default function BCApp() {
   if(!user) return <AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
   if(screen==="profile") return <ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
 
+  // ── Side menu helper — renderizado sobre qualquer tela ──
+  function SideMenuOverlay() {
+    if(!sideMenu) return null;
+    return (
+      <div style={{ position:"fixed",inset:0,zIndex:200 }} onClick={()=>setSideMenu(false)}>
+        <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.35)" }}/>
+        <div onClick={e=>e.stopPropagation()} style={{ position:"absolute",top:0,right:0,bottom:0,width:290,background:C.white,boxShadow:"-4px 0 24px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column",animation:"slideIn 0.22s ease" }}>
+          <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+          <div style={{ background:C.blue,padding:"32px 20px 24px" }}>
+            <Avatar user={user} size={54}/>
+            <div style={{ color:C.white,fontWeight:700,fontSize:16,marginTop:10 }}>{user.name}</div>
+            <div style={{ color:"rgba(255,255,255,0.7)",fontSize:12,marginTop:3 }}>{getRoleLabel(user.role)} · {user.area}</div>
+          </div>
+          <div style={{ flex:1,overflowY:"auto",padding:"8px 0" }}>
+            <button onClick={()=>{setSideMenu(false);setScreen("profile");}} style={{ width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
+              <div style={{ width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>{Ic.person(C.blue)}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14,fontWeight:600,color:C.text }}>Meu Perfil</div>
+                <div style={{ fontSize:12,color:C.sub }}>Editar informações e foto</div>
+              </div>
+              {Ic.chevR()}
+            </button>
+            <Divider/>
+            <button onClick={()=>{setSideMenu(false);setScreen("members");if(!membersLoaded)loadMembers();}} style={{ width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
+              <div style={{ width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14,fontWeight:600,color:C.text }}>Membros</div>
+                <div style={{ fontSize:12,color:C.sub }}>Ver todos os participantes</div>
+              </div>
+              {Ic.chevR()}
+            </button>
+          </div>
+          <div style={{ padding:"12px 20px 36px",borderTop:`1px solid ${C.border}` }}>
+            <button onClick={logout} style={{ width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#FEF2F2",border:"none",borderRadius:10,cursor:"pointer" }}>
+              {Ic.logout(C.red)}
+              <span style={{ fontSize:14,fontWeight:600,color:C.red }}>Sair da conta</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Tela de membros ──
   if(screen==="members") return (
     <div style={{ minHeight:"100vh",background:C.bg,fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
       <style>{`*{box-sizing:border-box;} button{font-family:inherit;} select{font-family:inherit;} ::-webkit-scrollbar{display:none;}`}</style>
+      <SideMenuOverlay/>
       <div style={{ background:C.white,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:40 }}>
         <button onClick={()=>setScreen("app")} style={{ background:"none",border:"none",cursor:"pointer",padding:4,display:"flex" }}>{Ic.back()}</button>
         <span style={{ fontSize:17,fontWeight:700 }}>Membros</span>
         <span style={{ marginLeft:"auto",fontSize:12,color:C.muted }}>{members.length} pessoas</span>
+        <button onClick={()=>setSideMenu(true)} style={{ background:"none",border:"none",cursor:"pointer",padding:0,marginLeft:8 }}>
+          <Avatar user={user} size={32}/>
+        </button>
       </div>
 
       {!membersLoaded&&<Spinner/>}
@@ -840,59 +889,7 @@ export default function BCApp() {
       `}</style>
       <input ref={uploadRef} type="file" style={{display:"none"}} onChange={handleUpload}/>
 
-      {/* Side Menu Overlay */}
-      {sideMenu&&(
-        <div style={{ position:"fixed",inset:0,zIndex:100 }} onClick={()=>setSideMenu(false)}>
-          {/* backdrop */}
-          <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(2px)" }}/>
-          {/* panel */}
-          <div onClick={e=>e.stopPropagation()} style={{ position:"absolute",top:0,right:0,bottom:0,width:300,background:C.white,boxShadow:"-4px 0 24px rgba(0,0,0,0.12)",display:"flex",flexDirection:"column",animation:"slideIn 0.22s ease" }}>
-            <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
-
-            {/* User info */}
-            <div style={{ background:C.blue,padding:"32px 20px 24px" }}>
-              <Avatar user={user} size={54}/>
-              <div style={{ color:C.white,fontWeight:700,fontSize:16,marginTop:10 }}>{user.name}</div>
-              <div style={{ color:"rgba(255,255,255,0.7)",fontSize:12,marginTop:3 }}>{getRoleLabel(user.role)} · {user.area}</div>
-            </div>
-
-            {/* Menu options */}
-            <div style={{ flex:1,overflowY:"auto",padding:"8px 0" }}>
-              <button onClick={()=>{setSideMenu(false);setScreen("profile");}} style={{ width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
-                <div style={{ width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                  {Ic.person(C.blue)}
-                </div>
-                <div>
-                  <div style={{ fontSize:14,fontWeight:600,color:C.text }}>Meu Perfil</div>
-                  <div style={{ fontSize:12,color:C.sub }}>Editar informações e foto</div>
-                </div>
-                {Ic.chevR()}
-              </button>
-
-              <Divider/>
-
-              <button onClick={()=>{setSideMenu(false);setScreen("members");if(!membersLoaded)loadMembers();}} style={{ width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left" }}>
-                <div style={{ width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                </div>
-                <div>
-                  <div style={{ fontSize:14,fontWeight:600,color:C.text }}>Membros</div>
-                  <div style={{ fontSize:12,color:C.sub }}>Ver todos os participantes</div>
-                </div>
-                {Ic.chevR()}
-              </button>
-            </div>
-
-            {/* Logout */}
-            <div style={{ padding:"12px 20px 32px",borderTop:`1px solid ${C.border}` }}>
-              <button onClick={logout} style={{ width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#FEF2F2",border:"none",borderRadius:10,cursor:"pointer" }}>
-                {Ic.logout(C.red)}
-                <span style={{ fontSize:14,fontWeight:600,color:C.red }}>Sair da conta</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SideMenuOverlay/>
 
       {/* Header */}
       <div style={{ position:"sticky",top:0,zIndex:40,background:C.white,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
