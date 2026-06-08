@@ -934,5 +934,3 @@ export default function BCApp() {
     </div>
   );
 }
-ENDOFFILE
-echo "Linhas: $(wc -l < /home/claude/bc-app/src/App.jsx)"
