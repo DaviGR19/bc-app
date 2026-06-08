@@ -665,9 +665,6 @@ export default function BCApp() {
   const [dNovo,    setDNovo]   = useState({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});
   const uploadRef = useRef();
   const [uploadArea,setUploadArea]=useState(null);
-  const [sideMenu, setSideMenu] = useState(false);
-  const [members,  setMembers]  = useState([]);
-  const [membersLoaded, setMembersLoaded] = useState(false);
 
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
@@ -718,22 +715,11 @@ export default function BCApp() {
     setDForm(false);
   }
 
-  async function loadMembers(){
-    const {data}=await supabase.from("profiles").select("*").order("name");
-    setMembers(data||[]); setMembersLoaded(true);
-  }
-
-  async function updateMemberRole(id, role, area){
-    await supabase.from("profiles").update({role,area}).eq("id",id);
-    setMembers(prev=>prev.map(m=>m.id===id?{...m,role,area}:m));
-  }
-
-  async function logout(){ await supabase.auth.signOut(); setUser(null); setScreen("app"); setTab("inicio"); setSideMenu(false); }
+  async function logout(){ await supabase.auth.signOut(); setUser(null); setScreen("app"); setTab("inicio"); }
 
   if(loading) return <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.white }}><Spinner/></div>;
   if(!user) return <AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
   if(screen==="profile") return <ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
-
   if(screen==="demanda"&&selectedD){
     const d=demandas.find(x=>x.id===selectedD);
     if(d) return <DemandaDetail demanda={d} canEdit={canManage(user)}
@@ -757,7 +743,6 @@ export default function BCApp() {
   const TAB_LABEL={inicio:"Painel",demandas:"Demandas",calendario:"Agenda",materiais:"Materiais"};
 
   return (
-    <>
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",maxWidth:430,margin:"0 auto",color:C.text }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
@@ -776,7 +761,7 @@ export default function BCApp() {
           <div style={{ fontSize:10,fontWeight:700,letterSpacing:2.5,color:C.blue,textTransform:"uppercase" }}>Business Consultoria · UEL</div>
           <div style={{ fontSize:19,fontWeight:700,marginTop:1 }}>{TAB_LABEL[tab]}</div>
         </div>
-        <button onClick={()=>setSideMenu(true)} style={{ background:"none",border:"none",cursor:"pointer",padding:0 }}>
+        <button onClick={()=>setScreen("profile")} style={{ background:"none",border:"none",cursor:"pointer",padding:0 }}>
           <Avatar user={user} size={38}/>
         </button>
       </div>
@@ -977,7 +962,5 @@ export default function BCApp() {
         {TABS.map(t=><NavTab key={t.id} tab={t.id} active={tab===t.id} icon={t.icon} label={t.label} onClick={()=>setTab(t.id)}/>)}
       </div>
     </div>
-    {sideMenuJSX}
-    </>
   );
 }
