@@ -1,4 +1,3 @@
-cat > /home/claude/bc-app/src/App.jsx << 'ENDOFFILE'
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
