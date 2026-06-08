@@ -77,115 +77,366 @@ const Ic={
 
 // ── Image Cropper ─────────────────────────────────────────────
 function ImageCropper({ src, aspect, onCrop, onCancel }) {
-  // aspect: "square" para avatar, "banner" para fundo (16:9)
   const isSquare = aspect === "square";
+
   const W = isSquare ? 260 : 320;
   const H = isSquare ? 260 : 180;
-  const imgRef = useRef(new Image());
-  const canvasRef = useRef();
+
+  const imgRef = useRef(null);
+
+  const [imgSize, setImgSize] = useState({
+    width: 1,
+    height: 1
+  });
+
   const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const drag = useRef(null);
+  const [minScale, setMinScale] = useState(1);
+
+  const maxScale = 5;
+
+  const [offset, setOffset] = useState({
+    x: 0,
+    y: 0
+  });
+
+  const dragRef = useRef(null);
+  const pinchRef = useRef(null);
 
   useEffect(() => {
-    const img = imgRef.current;
+    const img = new Image();
+
     img.onload = () => {
-      // fit inicial
-      const sc = Math.max(W / img.width, H / img.height);
-      setScale(sc);
-      setOffset({ x: 0, y: 0 });
+      const fitScale = Math.max(
+        W / img.width,
+        H / img.height
+      );
+
+      setImgSize({
+        width: img.width,
+        height: img.height
+      });
+
+      setMinScale(fitScale);
+      setScale(fitScale);
+
+      setOffset({
+        x: 0,
+        y: 0
+      });
     };
+
     img.src = src;
   }, [src]);
 
-  useEffect(() => { draw(); }, [scale, offset]);
+  function clampOffset(x, y, currentScale = scale) {
+    const iw = imgSize.width * currentScale;
+    const ih = imgSize.height * currentScale;
 
-  function draw() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const img = imgRef.current;
-    ctx.clearRect(0, 0, W, H);
-    const iw = img.width * scale, ih = img.height * scale;
-    const dx = (W - iw) / 2 + offset.x;
-    const dy = (H - ih) / 2 + offset.y;
-    if (isSquare) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(W/2, H/2, W/2, 0, Math.PI*2);
-      ctx.clip();
-    }
-    ctx.drawImage(img, dx, dy, iw, ih);
-    if (isSquare) {
-      ctx.restore();
-      ctx.beginPath();
-      ctx.arc(W/2, H/2, W/2-1, 0, Math.PI*2);
-      ctx.strokeStyle = C.blue;
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    } else {
-      ctx.strokeStyle = C.blue;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(1, 1, W-2, H-2);
-    }
+    const maxX = Math.max(
+      0,
+      (iw - W) / 2
+    );
+
+    const maxY = Math.max(
+      0,
+      (ih - H) / 2
+    );
+
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y))
+    };
   }
 
   function getPos(e) {
-    if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    return { x: e.clientX, y: e.clientY };
+    if (e.touches) {
+      return {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    }
+
+    return {
+      x: e.clientX,
+      y: e.clientY
+    };
   }
-  function onStart(e) { e.preventDefault(); drag.current = { ...getPos(e), ox: offset.x, oy: offset.y }; }
+
+  function getDistance(touches) {
+    const dx =
+      touches[0].clientX -
+      touches[1].clientX;
+
+    const dy =
+      touches[0].clientY -
+      touches[1].clientY;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+
+    if (e.touches?.length === 2) {
+      pinchRef.current = {
+        startDistance: getDistance(e.touches),
+        startScale: scale
+      };
+
+      return;
+    }
+
+    dragRef.current = {
+      ...getPos(e),
+      ox: offset.x,
+      oy: offset.y
+    };
+  }
+
   function onMove(e) {
-    if (!drag.current) return; e.preventDefault();
+    if (
+      e.touches?.length === 2 &&
+      pinchRef.current
+    ) {
+      e.preventDefault();
+
+      const ratio =
+        getDistance(e.touches) /
+        pinchRef.current.startDistance;
+
+      let newScale =
+        pinchRef.current.startScale *
+        ratio;
+
+      newScale = Math.max(
+        minScale,
+        Math.min(maxScale, newScale)
+      );
+
+      setScale(newScale);
+
+      setOffset(prev =>
+        clampOffset(
+          prev.x,
+          prev.y,
+          newScale
+        )
+      );
+
+      return;
+    }
+
+    if (!dragRef.current) return;
+
+    e.preventDefault();
+
     const p = getPos(e);
-    setOffset({ x: drag.current.ox + p.x - drag.current.x, y: drag.current.oy + p.y - drag.current.y });
+
+    const nx =
+      dragRef.current.ox +
+      (p.x - dragRef.current.x);
+
+    const ny =
+      dragRef.current.oy +
+      (p.y - dragRef.current.y);
+
+    setOffset(clampOffset(nx, ny));
   }
-  function onEnd() { drag.current = null; }
+
+  function onEnd() {
+    dragRef.current = null;
+    pinchRef.current = null;
+  }
 
   function handleCrop() {
     const out = document.createElement("canvas");
+
     out.width = isSquare ? 400 : 800;
     out.height = isSquare ? 400 : 450;
+
     const ctx = out.getContext("2d");
-    const img = imgRef.current;
-    const scaleOut = out.width / W;
-    const iw = img.width * scale * scaleOut;
-    const ih = img.height * scale * scaleOut;
-    const dx = ((W - img.width * scale) / 2 + offset.x) * scaleOut;
-    const dy = ((H - img.height * scale) / 2 + offset.y) * scaleOut;
-    if (isSquare) {
-      ctx.beginPath();
-      ctx.arc(out.width/2, out.height/2, out.width/2, 0, Math.PI*2);
-      ctx.clip();
-    }
-    ctx.drawImage(img, dx, dy, iw, ih);
-    out.toBlob(b => onCrop(b), "image/jpeg", 0.92);
+
+    const img = new Image();
+
+    img.onload = () => {
+      const scaleOut = out.width / W;
+
+      const iw =
+        imgSize.width *
+        scale *
+        scaleOut;
+
+      const ih =
+        imgSize.height *
+        scale *
+        scaleOut;
+
+      const dx =
+        ((W -
+          imgSize.width *
+            scale) /
+          2 +
+          offset.x) *
+        scaleOut;
+
+      const dy =
+        ((H -
+          imgSize.height *
+            scale) /
+          2 +
+          offset.y) *
+        scaleOut;
+
+      if (isSquare) {
+        ctx.beginPath();
+
+        ctx.arc(
+          out.width / 2,
+          out.height / 2,
+          out.width / 2,
+          0,
+          Math.PI * 2
+        );
+
+        ctx.clip();
+      }
+
+      ctx.drawImage(
+        img,
+        dx,
+        dy,
+        iw,
+        ih
+      );
+
+      out.toBlob(
+        b => onCrop(b),
+        "image/jpeg",
+        0.92
+      );
+    };
+
+    img.src = src;
   }
 
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
-      <div style={{ background:C.white,borderRadius:20,padding:20,width:"100%",maxWidth:360 }}>
-        <div style={{ fontSize:15,fontWeight:700,marginBottom:4 }}>Ajustar foto</div>
-        <div style={{ fontSize:12,color:C.sub,marginBottom:14 }}>Arraste para enquadrar · Deslize para zoom</div>
-        <div style={{ display:"flex",justifyContent:"center",marginBottom:14,overflow:"hidden",borderRadius:isSquare?8:10 }}>
-          <canvas ref={canvasRef} width={W} height={H}
-            style={{ display:"block",cursor:"grab",touchAction:"none",borderRadius:isSquare?"50%":8 }}
-            onMouseDown={onStart} onMouseMove={onMove} onMouseUp={onEnd} onMouseLeave={onEnd}
-            onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+          "rgba(0,0,0,.8)",
+        zIndex: 999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16
+      }}
+    >
+      <div
+        style={{
+          background: C.white,
+          borderRadius: 20,
+          padding: 20,
+          width: "100%",
+          maxWidth: 360
+        }}
+      >
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            marginBottom: 4
+          }}
+        >
+          Ajustar foto
+        </div>
+
+        <div
+          style={{
+            fontSize: 12,
+            color: C.sub,
+            marginBottom: 14
+          }}
+        >
+          Arraste para posicionar ·
+          Use dois dedos para zoom
+        </div>
+
+        <div
+          onMouseDown={onStart}
+          onMouseMove={onMove}
+          onMouseUp={onEnd}
+          onMouseLeave={onEnd}
+          onTouchStart={onStart}
+          onTouchMove={onMove}
+          onTouchEnd={onEnd}
+          style={{
+            width: W,
+            height: H,
+            margin: "0 auto 14px",
+            overflow: "hidden",
+            position: "relative",
+            touchAction: "none",
+            borderRadius:
+              isSquare
+                ? "50%"
+                : 10,
+            border:
+              `3px solid ${C.blue}`
+          }}
+        >
+          <img
+            ref={imgRef}
+            src={src}
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              userSelect: "none",
+              pointerEvents: "none",
+              transform: `
+                translate(
+                  calc(-50% + ${offset.x}px),
+                  calc(-50% + ${offset.y}px)
+                )
+                scale(${scale})
+              `,
+              transformOrigin:
+                "center center"
+            }}
           />
         </div>
-        <input type="range" min={0.3} max={5} step={0.01} value={scale}
-          onChange={e=>setScale(parseFloat(e.target.value))}
-          style={{ width:"100%",accentColor:C.blue,marginBottom:14 }}/>
-        <div style={{ display:"flex",gap:8 }}>
-          <Btn onClick={handleCrop} style={{flex:1}}>Confirmar</Btn>
-          <Btn variant="secondary" onClick={onCancel} style={{flex:1}}>Cancelar</Btn>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10
+          }}
+        >
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1
+            }}
+          >
+            Cancelar
+          </button>
+
+          <button
+            onClick={handleCrop}
+            style={{
+              flex: 1
+            }}
+          >
+            Salvar
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
 // ── Auth ──────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [mode,setMode]=useState("login");
