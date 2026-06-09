@@ -512,7 +512,11 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box;} input:focus,textarea:focus,select:focus{outline:none;border-color:${C.blue}!important;} button{font-family:inherit;} ::-webkit-scrollbar{display:none;}`}</style>
-      {cropSrc&&<ImageCropper src={cropSrc} aspect={cropAspect} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>}
+      {cropSrc&&(
+        cropAspect==="square"
+          ? <AvatarCropper src={cropSrc} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>
+          : <BannerCropper src={cropSrc} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>
+      )}
       <input ref={avatarRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"square")}/>
       <input ref={bannerRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"banner")}/>
 
