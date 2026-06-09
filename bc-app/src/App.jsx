@@ -386,27 +386,32 @@ function ImageCropper({ src, aspect, onCrop, onCancel }) {
               `3px solid ${C.blue}`
           }}
         >
-          <img
-            ref={imgRef}
-            src={src}
-            draggable={false}
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              userSelect: "none",
-              pointerEvents: "none",
-              transform: `
-                translate(
-                  calc(-50% + ${offset.x}px),
-                  calc(-50% + ${offset.y}px)
-                )
-                scale(${scale})
-              `,
-              transformOrigin:
-                "center center"
-            }}
-          />
+<img
+  ref={imgRef}
+  src={src}
+  draggable={false}
+  style={{
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+
+    width: imgSize.width,
+    height: imgSize.height,
+
+    userSelect: "none",
+    pointerEvents: "none",
+
+    transform: `
+      translate(
+        calc(-50% + ${offset.x}px),
+        calc(-50% + ${offset.y}px)
+      )
+      scale(${scale})
+    `,
+
+    transformOrigin: "center center"
+  }}
+/>
         </div>
 
         <div
