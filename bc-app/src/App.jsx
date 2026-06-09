@@ -76,6 +76,8 @@ const Ic={
 };
 
 // ── Image Cropper ─────────────────────────────────────────────
+import { useState, useEffect, useRef } from "react";
+
 const BLUE = "#1A56DB";
 
 // ── CropBox para avatar (quadrado com alças, estilo WhatsApp) ─
