@@ -404,6 +404,7 @@ function AuthScreen({ onLogin }) {
   const [pw,setPw]=useState("");
   const [pw2,setPw2]=useState("");
   const [showPw,setShowPw]=useState(false);
+  const [keepLogin,setKeepLogin]=useState(false);
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
   const [success,setSuccess]=useState("");
@@ -415,7 +416,7 @@ function AuthScreen({ onLogin }) {
     const {data,error:err}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password:pw});
     if(err){setError("E-mail ou senha incorretos.");setLoading(false);return;}
     const {data:p}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
-    onLogin({...p,email:data.user.email});
+    onLogin({...p,email:data.user.email},keepLogin);
   }
 
   async function handleSignup() {
@@ -454,6 +455,12 @@ function AuthScreen({ onLogin }) {
           <button onClick={()=>setShowPw(v=>!v)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:0,display:"flex"}}>{showPw?Ic.eyeOff():Ic.eye()}</button>
         </div>
       </div>
+      {mode==="login"&&(
+        <label style={{display:"flex",alignItems:"center",gap:8,margin:"-8px 0 16px",fontSize:13,color:C.sub,cursor:"pointer"}}>
+          <input type="checkbox" checked={keepLogin} onChange={e=>setKeepLogin(e.target.checked)} style={{width:16,height:16,accentColor:C.blue}}/>
+          Manter o login neste aparelho
+        </label>
+      )}
       {mode==="signup"&&<Inp label="Confirmar senha" type="password" placeholder="Repita a senha" value={pw2} onChange={e=>{setPw2(e.target.value);setError("");}}/>}
       {error&&<div style={{fontSize:13,color:C.red,marginBottom:14,fontWeight:500}}>{error}</div>}
       <Btn full onClick={mode==="login"?handleLogin:handleSignup} disabled={loading}>{loading?(mode==="login"?"Entrando...":"Criando conta..."):(mode==="login"?"Entrar":"Criar conta")}</Btn>
@@ -677,30 +684,56 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
 }
 
 // ── Full Calendar ─────────────────────────────────────────────
-function FullCalendar({ eventos, canManage, onAdd }) {
+function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }) {
   const year=2026;
   const [form,setForm]=useState(false);
+  const [selectedDate,setSelectedDate]=useState("");
+  const [editing,setEditing]=useState(null);
   const [novo,setNovo]=useState({titulo:"",date:"",hora:"",local:""});
   const eventMap={};
-  eventos.forEach(ev=>{eventMap[ev.data||ev.date]=ev;});
+  eventos.forEach(ev=>{
+    const key=ev.data||ev.date;
+    if(!eventMap[key])eventMap[key]=[];
+    eventMap[key].push(ev);
+  });
 
-  async function add(){
+  function openForm(date,ev=null){
+    if(!canManage)return;
+    setSelectedDate(date);
+    setEditing(ev);
+    setNovo(ev?{titulo:ev.titulo||"",date:ev.data||ev.date,hora:ev.hora||"",local:ev.local||""}:{titulo:"",date,hora:"",local:""});
+    setForm(true);
+  }
+
+  async function save(){
     if(!novo.titulo||!novo.date)return;
-    const {data}=await supabase.from("eventos").insert({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).select().single();
-    onAdd(data);setNovo({titulo:"",date:"",hora:"",local:""});setForm(false);
+    if(editing){
+      const {data,error}=await supabase.from("eventos").update({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).eq("id",editing.id).select().single();
+      if(!error&&data)onUpdate(data);
+    }else{
+      const {data,error}=await supabase.from("eventos").insert({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).select().single();
+      if(!error&&data)onAdd(data);
+    }
+    setNovo({titulo:"",date:"",hora:"",local:""});setEditing(null);setForm(false);
+  }
+
+  async function remove(ev){
+    if(!window.confirm("Excluir este evento?"))return;
+    const {error}=await supabase.from("eventos").delete().eq("id",ev.id);
+    if(!error)onDelete(ev.id);
   }
 
   return (
     <div>
-      <SLabel action={canManage&&<button onClick={()=>setForm(v=>!v)} style={{width:28,height:28,borderRadius:8,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}>Calendário 2026</SLabel>
+      <SLabel>Calendário 2026</SLabel>
       {form&&(
         <div style={{margin:"0 20px 16px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Novo evento</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>{editing?"Editar evento":"Novo evento"}</div>
           <Inp label="Título" value={novo.titulo} onChange={e=>setNovo(v=>({...v,titulo:e.target.value}))}/>
           <Inp label="Data" type="date" value={novo.date} onChange={e=>setNovo(v=>({...v,date:e.target.value}))}/>
-          <Inp label="Horário" placeholder="ex: 19h00" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/>
+          <Inp label="Horário" type="time" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/>
           <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={e=>setNovo(v=>({...v,local:e.target.value}))}/>
-          <div style={{display:"flex",gap:8}}><Btn onClick={add} style={{flex:1}}>Adicionar</Btn><Btn variant="secondary" onClick={()=>setForm(false)} style={{flex:1}}>Cancelar</Btn></div>
+          <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1}}>{editing?"Salvar":"Adicionar"}</Btn><Btn variant="secondary" onClick={()=>{setForm(false);setEditing(null);}} style={{flex:1}}>Cancelar</Btn></div>
         </div>
       )}
       {MONTHS.map((mName,mi)=>{
@@ -714,8 +747,14 @@ function FullCalendar({ eventos, canManage, onAdd }) {
               {Array.from({length:off}).map((_,i)=><div key={`e${i}`}/>)}
               {Array.from({length:days},(_,i)=>{
                 const day=i+1,iso=`${year}-${String(mi+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                const has=!!eventMap[iso],isT=iso===todayIso();
-                return <div key={day} style={{width:28,height:28,margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,position:"relative",background:isT?C.blue:"transparent",color:isT?C.white:has?C.blue:C.text,fontWeight:isT||has?700:400}}>{day}{has&&!isT&&<div style={{position:"absolute",bottom:2,width:3,height:3,borderRadius:"50%",background:C.blue}}/>}</div>;
+                const has=!!eventMap[iso],isT=iso===todayIso(),selected=selectedDate===iso;
+                return (
+                  <button key={day} onClick={()=>canManage&&setSelectedDate(iso)} style={{width:32,height:32,margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,position:"relative",background:isT?C.blue:selected?C.blueSoft:"transparent",color:isT?C.white:has?C.blue:C.text,fontWeight:isT||has?700:400,border:"none",cursor:canManage?"pointer":"default"}}>
+                    {day}
+                    {has&&!isT&&<div style={{position:"absolute",bottom:3,width:3,height:3,borderRadius:"50%",background:C.blue}}/>}
+                    {selected&&canManage&&<span onClick={e=>{e.stopPropagation();openForm(iso);}} style={{position:"absolute",right:-5,top:-5,width:16,height:16,borderRadius:"50%",background:C.blue,color:C.white,fontSize:13,lineHeight:"16px",fontWeight:800}}>+</span>}
+                  </button>
+                );
               })}
             </div>
             {mEvts.length>0&&(
@@ -725,6 +764,10 @@ function FullCalendar({ eventos, canManage, onAdd }) {
                     <div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 2px"}}>
                       <div style={{minWidth:28,height:28,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,fontWeight:800,color:C.blue}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span></div>
                       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:11,color:C.sub}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div>
+                      {canManage&&<div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>openForm(ev.data||ev.date,ev)} style={{width:28,height:28,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.edit()}</button>
+                        <button onClick={()=>remove(ev)} style={{width:28,height:28,borderRadius:7,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>
+                      </div>}
                     </div>
                     {i<mEvts.length-1&&<Divider m={0}/>}
                   </div>
@@ -772,7 +815,10 @@ export default function BCApp() {
 
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
-      if(session){
+      const keepLogin=localStorage.getItem("bc_keep_login")==="true";
+      if(session&&!keepLogin){
+        await supabase.auth.signOut();
+      } else if(session){
         const {data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
         if(p)setUser({...p,email:session.user.email});
       }
@@ -791,19 +837,19 @@ export default function BCApp() {
     return()=>supabase.removeChannel(ch);
   },[user]);
 
-  function loadAll(){loadDemandas();loadEventos();loadMateriais();}
+  function loadAll(){loadDemandas();loadEventos();loadMateriais();loadMembers();}
   async function loadDemandas(){const {data,error}=await supabase.from("demandas").select("*").order("criado_em",{ascending:false});if(error){setAppError("Não foi possível carregar as demandas.");return;}setDemandas(data||[]);}
   async function loadEventos(){const {data,error}=await supabase.from("eventos").select("*").order("data");if(error){setAppError("Não foi possível carregar a agenda.");return;}setEventos(data||[]);}
   async function loadMateriais(){const {data,error}=await supabase.from("materiais").select("*").order("criado_em");if(error){setAppError("Não foi possível carregar os materiais.");return;}const g={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
   async function loadMembers(){const {data,error}=await supabase.from("profiles").select("*").order("name");if(error){setAppError("Não foi possível carregar os membros.");return;}setMembers(data||[]);}
   async function updateMemberRole(id,role,area){const {error}=await supabase.from("profiles").update({role,area}).eq("id",id);if(error){setAppError("Não foi possível atualizar este membro.");return;}setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
   async function handleUpload(e){const f=e.target.files[0];if(!f||!uploadArea)return;setAppError("");const path=`${uploadArea}/${Date.now()}_${f.name}`;const {error:uploadError}=await supabase.storage.from("materiais").upload(path,f);if(uploadError){setAppError("Não foi possível enviar o arquivo.");e.target.value="";return;}const {data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const {error:insertError}=await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});if(insertError){setAppError("Arquivo enviado, mas não foi possível salvar na lista de materiais.");e.target.value="";return;}setUploadArea(null);e.target.value="";loadMateriais();}
-  async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo){setAppError("Preencha pelo menos o título e o prazo da demanda.");return;}setAppError("");const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;const {error}=await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});if(error){setAppError("Não foi possível criar a demanda.");return;}setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);loadDemandas();}
-  async function logout(){await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
+  async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo||!dNovo.resp){setAppError("Preencha título, responsável e prazo da demanda.");return;}setAppError("");const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;const {error}=await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});if(error){setAppError("Não foi possível criar a demanda.");return;}setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);loadDemandas();}
+  async function logout(){localStorage.removeItem("bc_keep_login");await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
 
   // ── loading / auth guards ─────────────────────────────────
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.white}}><Spinner/></div>;
-  if(!user)return<AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
+  if(!user)return<AuthScreen onLogin={(u,keepLogin)=>{localStorage.setItem("bc_keep_login",keepLogin?"true":"false");setUser(u);setTab("inicio");setScreen("app");}}/>;
   if(screen==="profile")return<ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
   if(screen==="demanda"&&selectedD){
     const d=demandas.find(x=>x.id===selectedD);
@@ -812,7 +858,11 @@ export default function BCApp() {
 
   const myDemandas  = canSeeAll(user)?demandas:demandas.filter(d=>d.area===user.area);
   const urgentes    = myDemandas.filter(d=>d.status==="urgente"||d.status==="pendente");
-  const nextEventos = eventos.filter(e=>(e.data||e.date)>=todayIso()).slice(0,3);
+  const now = new Date();
+  const nextEventos = eventos.filter(e=>{
+    const d=new Date((e.data||e.date)+"T00:00:00");
+    return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&(e.data||e.date)>=todayIso();
+  }).slice(0,3);
   const totalAbertas   = myDemandas.filter(d=>d.status!=="concluido").length;
   const totalConcluidas= myDemandas.filter(d=>d.status==="concluido").length;
 
@@ -992,18 +1042,23 @@ export default function BCApp() {
         {tab==="demandas"&&(<>
           <div style={{padding:"14px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             {canSeeAll(user)?<div style={{fontSize:12,color:C.blue,fontWeight:600,background:C.blueSoft,borderRadius:99,padding:"5px 14px"}}>Todas as áreas</div>:<div style={{fontSize:12,color:C.sub,background:C.white,border:`1px solid ${C.border}`,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5}}>{Ic.lock()} {user.area}</div>}
-            {canManage(user)&&<button onClick={()=>setDForm(v=>!v)} style={{width:32,height:32,borderRadius:9,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}
+            {canManage(user)&&<button onClick={()=>{setDForm(v=>!v);if(!members.length)loadMembers();}} style={{width:32,height:32,borderRadius:9,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}
           </div>
           {dForm&&canManage(user)&&(
             <div style={{margin:"12px 20px 0",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
               <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Nova demanda</div>
               <Inp label="Título" value={dNovo.titulo} onChange={e=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
-              <Inp label="Responsável" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}/>
+              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value,resp:""}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
+              <Sel label="Responsável" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}>
+                <option value="">Selecione um assessor</option>
+                {members
+                  .filter(m=>m.role==="membro"&&m.area===(canSeeAll(user)?dNovo.area||AREAS[0]:user.area))
+                  .map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
+              </Sel>
               <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={e=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
               <Sel label="Prioridade" value={dNovo.prioridade} onChange={e=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
               <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={e=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
               <Txt label="Observações" value={dNovo.obs} rows={2} onChange={e=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
-              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
               <div style={{display:"flex",gap:8}}><Btn onClick={addDemanda} style={{flex:1}}>Criar</Btn><Btn variant="secondary" onClick={()=>setDForm(false)} style={{flex:1}}>Cancelar</Btn></div>
             </div>
           )}
@@ -1034,7 +1089,7 @@ export default function BCApp() {
         </>)}
 
         {/* CALENDÁRIO */}
-        {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={ev=>setEventos(p=>[...p,ev])}/>}
+        {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={ev=>setEventos(p=>[...p,ev])} onUpdate={ev=>setEventos(p=>p.map(x=>x.id===ev.id?ev:x))} onDelete={id=>setEventos(p=>p.filter(x=>x.id!==id))}/>}
 
         {/* MATERIAIS */}
         {tab==="materiais"&&(<>
