@@ -8,19 +8,19 @@ const C = {
   green:"#059669", amber:"#D97706", red:"#DC2626",
 };
 
-const AREAS = ["Geral","Comercial","GestÃ£o de Pessoas","Projetos","JurÃ­dico Financeiro","Marketing"];
-const MONTHS = ["Janeiro","Fevereiro","MarÃ§o","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const WEEKDAYS = ["Domingo","Segunda-feira","TerÃ§a-feira","Quarta-feira","Quinta-feira","Sexta-feira","SÃ¡bado"];
+const AREAS = ["Geral","Comercial","Gestão de Pessoas","Projetos","Jurídico Financeiro","Marketing"];
+const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const WEEKDAYS = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const DAYS_S = ["D","S","T","Q","Q","S","S"];
 const STATUS = {
   urgente:   { label:"Urgente",      color:C.red,   bg:"#FEF2F2" },
   andamento: { label:"Em andamento", color:C.amber, bg:"#FFFBEB" },
   pendente:  { label:"Pendente",     color:C.blue,  bg:C.blueSoft},
-  concluido: { label:"ConcluÃ­do",    color:C.green, bg:"#ECFDF5" },
+  concluido: { label:"Concluído",    color:C.green, bg:"#ECFDF5" },
 };
 const PRIORIDADE = {
   alta:  { label:"Alta",  color:C.red   },
-  media: { label:"MÃ©dia", color:C.amber },
+  media: { label:"Média", color:C.amber },
   baixa: { label:"Baixa", color:C.green },
 };
 const BG_COLORS = ["#1A56DB","#7C3AED","#059669","#374151","#DB2777","#D97706"];
@@ -28,14 +28,14 @@ const BG_COLORS = ["#1A56DB","#7C3AED","#059669","#374151","#DB2777","#D97706"];
 function getSaudacao() { const h=new Date().getHours(); return h>=5&&h<12?"Bom dia":h>=12&&h<18?"Boa tarde":"Boa noite"; }
 function getDataAtual() { const n=new Date(); return `${WEEKDAYS[n.getDay()]}, ${n.getDate()} de ${MONTHS[n.getMonth()]} de ${n.getFullYear()}`; }
 function todayIso() { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`; }
-function fmtDate(iso) { if(!iso)return"â€”"; const d=new Date(iso+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; }
+function fmtDate(iso) { if(!iso)return"—"; const d=new Date(iso+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; }
 function daysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
 function firstDay(y,m) { return new Date(y,m,1).getDay(); }
 function canSeeAll(u) { return u?.role==="presidente"||u?.role==="vice"; }
 function canManage(u) { return u?.role==="presidente"||u?.role==="vice"||u?.role==="diretor"; }
 function getRoleLabel(r) { return {presidente:"Presidente",vice:"Vice-Presidente",diretor:"Diretor(a)",membro:"Assessor(a)"}[r]||r; }
 
-// â”€â”€ atoms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── atoms ─────────────────────────────────────────────────────
 function Pill({status}){const s=STATUS[status]||STATUS.pendente;return<span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99,color:s.color,background:s.bg,whiteSpace:"nowrap"}}>{s.label}</span>;}
 function Divider({m=20}){return<div style={{height:1,background:C.border,margin:`0 ${m}px`}}/>;}
 function SLabel({children,action}){return<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 10px"}}><span style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{children}</span>{action}</div>;}
@@ -47,7 +47,7 @@ function Btn({children,variant="primary",full,small,onClick,disabled,style={}}){
 function Avatar({user,size=38}){if(user?.avatar)return<img src={user.avatar} alt="" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0}}/>;return<div style={{width:size,height:size,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.34,fontWeight:700,color:C.white,flexShrink:0}}>{user?.initials||"?"}</div>;}
 function Spinner(){return<div style={{display:"flex",justifyContent:"center",padding:"40px 0"}}><div style={{width:28,height:28,border:`3px solid ${C.border}`,borderTopColor:C.blue,borderRadius:"50%",animation:"spin .8s linear infinite"}}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;}
 
-// â”€â”€ icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── icons ──────────────────────────────────────────────────────
 const Ic={
   home:  c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
   check: c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
@@ -75,11 +75,11 @@ const Ic={
   user:  c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
 };
 
-// â”€â”€ Image Cropper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Image Cropper ─────────────────────────────────────────────
 
 const BLUE = "#1A56DB";
 
-// â”€â”€ CropBox para avatar (quadrado com alÃ§as, estilo WhatsApp) â”€
+// ── CropBox para avatar (quadrado com alças, estilo WhatsApp) ─
 function AvatarCropper({ src, onCrop, onCancel }) {
   const containerRef = useRef();
   const imgRef = useRef();
@@ -196,7 +196,7 @@ function AvatarCropper({ src, onCrop, onCancel }) {
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16 }}>
       <div style={{ background:"#1a1a1a",borderRadius:20,padding:20,width:"100%",maxWidth:360 }}>
         <div style={{ color:"white",fontSize:15,fontWeight:700,marginBottom:4 }}>Ajustar foto de perfil</div>
-        <div style={{ color:"#aaa",fontSize:12,marginBottom:14 }}>Arraste o quadrado ou as alÃ§as para enquadrar</div>
+        <div style={{ color:"#aaa",fontSize:12,marginBottom:14 }}>Arraste o quadrado ou as alças para enquadrar</div>
 
         {/* Canvas area */}
         <div ref={containerRef} style={{ position:"relative",width:320,height:400,margin:"0 auto",overflow:"hidden",borderRadius:10,background:"#000",touchAction:"none",cursor:"crosshair" }}
@@ -245,7 +245,7 @@ function AvatarCropper({ src, onCrop, onCancel }) {
   );
 }
 
-// â”€â”€ Banner cropper (livre, sem forma circular) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Banner cropper (livre, sem forma circular) ─────────────────
 function BannerCropper({ src, onCrop, onCancel }) {
   const containerRef = useRef();
   const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
@@ -380,7 +380,7 @@ function BannerCropper({ src, onCrop, onCancel }) {
 }
 
 export { AvatarCropper, BannerCropper };
-// â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Auth ──────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [mode,setMode]=useState("login");
   const [email,setEmail]=useState("");
@@ -405,14 +405,14 @@ function AuthScreen({ onLogin }) {
   async function handleSignup() {
     if(!name||!email||!pw||!pw2){setError("Preencha todos os campos.");return;}
     if(!email.endsWith("@uel.br")){setError("Use seu e-mail institucional (@uel.br).");return;}
-    if(pw!==pw2){setError("As senhas nÃ£o coincidem.");return;}
-    if(pw.length<6){setError("MÃ­nimo 6 caracteres na senha.");return;}
+    if(pw!==pw2){setError("As senhas não coincidem.");return;}
+    if(pw.length<6){setError("Mínimo 6 caracteres na senha.");return;}
     setError("");setLoading(true);
     const {data,error:err}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password:pw});
     if(err){setError(err.message);setLoading(false);return;}
     const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
-    await supabase.from("profiles").insert({id:data.user.id,name:name.trim(),initials,area:"GestÃ£o de Pessoas",role:"membro",bio:"",avatar:""});
-    setLoading(false);setSuccess("Conta criada! VocÃª jÃ¡ pode entrar.");setMode("login");
+    await supabase.from("profiles").insert({id:data.user.id,name:name.trim(),initials,area:"Gestão de Pessoas",role:"membro",bio:"",avatar:""});
+    setLoading(false);setSuccess("Conta criada! Você já pode entrar.");setMode("login");
   }
 
   return (
@@ -422,7 +422,7 @@ function AuthScreen({ onLogin }) {
         <div style={{width:64,height:64,borderRadius:18,background:C.blue,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:16,boxShadow:"0 8px 24px rgba(26,86,219,.25)"}}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
         </div>
-        <div style={{fontSize:10,fontWeight:700,letterSpacing:3,color:C.blue,textTransform:"uppercase",marginBottom:6}}>Business Consultoria Â· UEL</div>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:3,color:C.blue,textTransform:"uppercase",marginBottom:6}}>Business Consultoria · UEL</div>
         <div style={{fontSize:24,fontWeight:700,color:C.text,marginBottom:4}}>{mode==="login"?"Bem-vindo de volta":"Criar conta"}</div>
         <div style={{fontSize:13,color:C.sub}}>{mode==="login"?"Entre com seu e-mail institucional":"Use seu e-mail @uel.br"}</div>
       </div>
@@ -432,7 +432,7 @@ function AuthScreen({ onLogin }) {
       <div style={{marginBottom:error?8:20}}>
         <FL>Senha</FL>
         <div style={{position:"relative"}}>
-          <input type={showPw?"text":"password"} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" value={pw}
+          <input type={showPw?"text":"password"} placeholder="••••••••" value={pw}
             onChange={e=>{setPw(e.target.value);setError("");}} onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleSignup())}
             style={{width:"100%",padding:"11px 42px 11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",boxSizing:"border-box"}}/>
           <button onClick={()=>setShowPw(v=>!v)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:0,display:"flex"}}>{showPw?Ic.eyeOff():Ic.eye()}</button>
@@ -442,13 +442,13 @@ function AuthScreen({ onLogin }) {
       {error&&<div style={{fontSize:13,color:C.red,marginBottom:14,fontWeight:500}}>{error}</div>}
       <Btn full onClick={mode==="login"?handleLogin:handleSignup} disabled={loading}>{loading?(mode==="login"?"Entrando...":"Criando conta..."):(mode==="login"?"Entrar":"Criar conta")}</Btn>
       <button onClick={()=>{setMode(m=>m==="login"?"signup":"login");setError("");setSuccess("");}} style={{marginTop:16,background:"none",border:"none",cursor:"pointer",fontSize:13,color:C.blue,fontWeight:600}}>
-        {mode==="login"?"NÃ£o tem conta? Criar conta":"JÃ¡ tem conta? Entrar"}
+        {mode==="login"?"Não tem conta? Criar conta":"Já tem conta? Entrar"}
       </button>
     </div>
   );
 }
 
-// â”€â”€ Profile Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Profile Screen ────────────────────────────────────────────
 function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   const [name,setName]=useState(user.name||"");
   const [bio,setBio]=useState(user.bio||"");
@@ -481,7 +481,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   }
   async function saveBannerColor(c){setBannerColor(c);await supabase.from("profiles").update({bannerColor:c}).eq("id",user.id);onUpdate({bannerColor:c});}
   async function handleSave(){
-    if(pw&&pw!==pw2){setPwErr("As senhas nÃ£o coincidem.");return;}
+    if(pw&&pw!==pw2){setPwErr("As senhas não coincidem.");return;}
     setPwErr("");setLoading(true);
     const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
     await supabase.from("profiles").update({name,bio,initials}).eq("id",user.id);
@@ -507,7 +507,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
 
       {/* Banner */}
       <div style={{...bannerStyle,padding:"28px 20px 48px",textAlign:"center",position:"relative",minHeight:150}}>
-        {/* botÃ£o trocar banner */}
+        {/* botão trocar banner */}
         <button onClick={()=>pickFile(bannerRef,"banner")} style={{position:"absolute",top:10,right:10,display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,background:"rgba(0,0,0,0.35)",border:"1px solid rgba(255,255,255,0.3)",cursor:"pointer",color:"white",fontSize:12,fontWeight:600}}>
           {Ic.image()} Trocar fundo
         </button>
@@ -519,7 +519,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
           </button>
         </div>
         <div style={{color:"white",fontWeight:700,fontSize:17,marginTop:10,textShadow:"0 1px 4px rgba(0,0,0,.3)"}}>{user.name}</div>
-        <div style={{color:"rgba(255,255,255,.75)",fontSize:12,marginTop:4}}>{getRoleLabel(user.role)} Â· {user.area}</div>
+        <div style={{color:"rgba(255,255,255,.75)",fontSize:12,marginTop:4}}>{getRoleLabel(user.role)} · {user.area}</div>
       </div>
 
       <div style={{margin:"-20px 16px 0",background:C.white,borderRadius:16,border:`1px solid ${C.border}`,padding:20,position:"relative",zIndex:1}}>
@@ -542,7 +542,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
             </button>
           </div>
         )}
-        <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>InformaÃ§Ãµes pessoais</div>
+        <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>Informações pessoais</div>
         <Inp label="Nome completo" value={name} onChange={e=>setName(e.target.value)}/>
         <div style={{marginBottom:12}}><FL>E-mail</FL><div style={{padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.muted,background:"#f9fafb"}}>{user.email}</div></div>
         <Txt label="Bio" value={bio} rows={3} onChange={e=>setBio(e.target.value)}/>
@@ -550,8 +550,8 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
         <Inp label="Nova senha" type="password" placeholder="Deixe em branco para manter" value={pw} onChange={e=>{setPw(e.target.value);setPwErr("");}}/>
         <Inp label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" value={pw2} onChange={e=>{setPw2(e.target.value);setPwErr("");}}/>
         {pwErr&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{pwErr}</div>}
-        {saved&&<div style={{fontSize:13,color:C.green,fontWeight:600,marginBottom:10,textAlign:"center"}}>âœ“ Perfil atualizado!</div>}
-        <Btn full onClick={handleSave} disabled={loading}>{loading?"Salvando...":"Salvar alteraÃ§Ãµes"}</Btn>
+        {saved&&<div style={{fontSize:13,color:C.green,fontWeight:600,marginBottom:10,textAlign:"center"}}>✓ Perfil atualizado!</div>}
+        <Btn full onClick={handleSave} disabled={loading}>{loading?"Salvando...":"Salvar alterações"}</Btn>
         <div style={{marginTop:12}}><Btn full variant="danger" onClick={onLogout}>Sair da conta</Btn></div>
       </div>
       <div style={{height:32}}/>
@@ -559,7 +559,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   );
 }
 
-// â”€â”€ Demanda Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Demanda Detail ────────────────────────────────────────────
 function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
   const [editing,setEditing]=useState(false);
   const [form,setForm]=useState({...demanda});
@@ -603,8 +603,8 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
         {editing?(
           <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16}}>
             <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:14}}>Editar demanda</div>
-            <Inp label="TÃ­tulo" value={form.titulo} onChange={e=>setForm(v=>({...v,titulo:e.target.value}))}/>
-            <Inp label="ResponsÃ¡vel" value={form.resp} onChange={e=>setForm(v=>({...v,resp:e.target.value}))}/>
+            <Inp label="Título" value={form.titulo} onChange={e=>setForm(v=>({...v,titulo:e.target.value}))}/>
+            <Inp label="Responsável" value={form.resp} onChange={e=>setForm(v=>({...v,resp:e.target.value}))}/>
             <Inp label="Prazo" type="date" value={form.prazo} onChange={e=>setForm(v=>({...v,prazo:e.target.value}))}/>
             <Sel label="Status" value={form.status} onChange={e=>setForm(v=>({...v,status:e.target.value}))}>
               {Object.entries(STATUS).map(([k,s])=><option key={k} value={k}>{s.label}</option>)}
@@ -612,8 +612,8 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
             <Sel label="Prioridade" value={form.prioridade} onChange={e=>setForm(v=>({...v,prioridade:e.target.value}))}>
               {Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
             </Sel>
-            <Txt label="DescriÃ§Ã£o" value={form.descricao} rows={4} onChange={e=>setForm(v=>({...v,descricao:e.target.value}))}/>
-            <Txt label="ObservaÃ§Ãµes" value={form.obs} rows={3} onChange={e=>setForm(v=>({...v,obs:e.target.value}))}/>
+            <Txt label="Descrição" value={form.descricao} rows={4} onChange={e=>setForm(v=>({...v,descricao:e.target.value}))}/>
+            <Txt label="Observações" value={form.obs} rows={3} onChange={e=>setForm(v=>({...v,obs:e.target.value}))}/>
             <div style={{display:"flex",gap:8}}>
               <Btn onClick={save} style={{flex:1}}>Salvar</Btn>
               <Btn variant="secondary" onClick={()=>setEditing(false)} style={{flex:1}}>Cancelar</Btn>
@@ -627,13 +627,13 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
                 <Pill status={demanda.status}/>
               </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
-                <span style={{fontSize:12,color:C.sub,display:"flex",alignItems:"center",gap:4}}>{Ic.person()}{demanda.resp||"â€”"}</span>
+                <span style={{fontSize:12,color:C.sub,display:"flex",alignItems:"center",gap:4}}>{Ic.person()}{demanda.resp||"—"}</span>
                 <span style={{fontSize:12,color:C.sub,display:"flex",alignItems:"center",gap:4}}>{Ic.cal2()}{fmtDate(demanda.prazo)}</span>
                 <span style={{fontSize:12,display:"flex",alignItems:"center",gap:4,color:PRIORIDADE[demanda.prioridade]?.color||C.muted,fontWeight:600}}>{PRIORIDADE[demanda.prioridade]?.label}</span>
               </div>
             </div>
-            {demanda.descricao&&<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>DescriÃ§Ã£o</div><div style={{fontSize:14,color:C.text,lineHeight:1.6}}>{demanda.descricao}</div></div>}
-            {demanda.obs&&<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>ObservaÃ§Ãµes</div><div style={{fontSize:14,color:C.text,lineHeight:1.6}}>{demanda.obs}</div></div>}
+            {demanda.descricao&&<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Descrição</div><div style={{fontSize:14,color:C.text,lineHeight:1.6}}>{demanda.descricao}</div></div>}
+            {demanda.obs&&<div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Observações</div><div style={{fontSize:14,color:C.text,lineHeight:1.6}}>{demanda.obs}</div></div>}
             <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:12}}>
               <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Anexos</div>
               <input ref={anexoRef} type="file" style={{display:"none"}} onChange={handleAnexo}/>
@@ -656,7 +656,7 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
   );
 }
 
-// â”€â”€ Full Calendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Full Calendar ─────────────────────────────────────────────
 function FullCalendar({ eventos, canManage, onAdd }) {
   const year=2026;
   const [form,setForm]=useState(false);
@@ -672,13 +672,13 @@ function FullCalendar({ eventos, canManage, onAdd }) {
 
   return (
     <div>
-      <SLabel action={canManage&&<button onClick={()=>setForm(v=>!v)} style={{width:28,height:28,borderRadius:8,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}>CalendÃ¡rio 2026</SLabel>
+      <SLabel action={canManage&&<button onClick={()=>setForm(v=>!v)} style={{width:28,height:28,borderRadius:8,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}>Calendário 2026</SLabel>
       {form&&(
         <div style={{margin:"0 20px 16px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Novo evento</div>
-          <Inp label="TÃ­tulo" value={novo.titulo} onChange={e=>setNovo(v=>({...v,titulo:e.target.value}))}/>
+          <Inp label="Título" value={novo.titulo} onChange={e=>setNovo(v=>({...v,titulo:e.target.value}))}/>
           <Inp label="Data" type="date" value={novo.date} onChange={e=>setNovo(v=>({...v,date:e.target.value}))}/>
-          <Inp label="HorÃ¡rio" placeholder="ex: 19h00" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/>
+          <Inp label="Horário" placeholder="ex: 19h00" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/>
           <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={e=>setNovo(v=>({...v,local:e.target.value}))}/>
           <div style={{display:"flex",gap:8}}><Btn onClick={add} style={{flex:1}}>Adicionar</Btn><Btn variant="secondary" onClick={()=>setForm(false)} style={{flex:1}}>Cancelar</Btn></div>
         </div>
@@ -704,7 +704,7 @@ function FullCalendar({ eventos, canManage, onAdd }) {
                   <div key={ev.id}>
                     <div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 2px"}}>
                       <div style={{minWidth:28,height:28,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,fontWeight:800,color:C.blue}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span></div>
-                      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:11,color:C.sub}}>{ev.hora}{ev.local&&` Â· ${ev.local}`}</div></div>
+                      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:11,color:C.sub}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div>
                     </div>
                     {i<mEvts.length-1&&<Divider m={0}/>}
                   </div>
@@ -718,7 +718,7 @@ function FullCalendar({ eventos, canManage, onAdd }) {
   );
 }
 
-// â”€â”€ Nav Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Nav Tab ───────────────────────────────────────────────────
 function NavTab({active,icon,label,onClick}){
   return(
     <button onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 12px",transition:"transform .15s",transform:active?"translateY(-2px)":"none"}}>
@@ -730,7 +730,7 @@ function NavTab({active,icon,label,onClick}){
   );
 }
 
-// â”€â”€ Main App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main App ──────────────────────────────────────────────────
 export default function BCApp() {
   const [user,     setUser]    = useState(null);
   const [loading,  setLoading] = useState(true);
@@ -772,16 +772,16 @@ export default function BCApp() {
   },[user]);
 
   function loadAll(){loadDemandas();loadEventos();loadMateriais();}
-  async function loadDemandas(){const {data,error}=await supabase.from("demandas").select("*").order("criado_em",{ascending:false});if(error){setAppError("Nao foi possivel carregar as demandas.");return;}setDemandas(data||[]);}
-  async function loadEventos(){const {data,error}=await supabase.from("eventos").select("*").order("data");if(error){setAppError("Nao foi possivel carregar a agenda.");return;}setEventos(data||[]);}
-  async function loadMateriais(){const {data,error}=await supabase.from("materiais").select("*").order("criado_em");if(error){setAppError("Nao foi possivel carregar os materiais.");return;}const g={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
-  async function loadMembers(){const {data,error}=await supabase.from("profiles").select("*").order("name");if(error){setAppError("Nao foi possivel carregar os membros.");return;}setMembers(data||[]);}
-  async function updateMemberRole(id,role,area){const {error}=await supabase.from("profiles").update({role,area}).eq("id",id);if(error){setAppError("Nao foi possivel atualizar este membro.");return;}setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
-  async function handleUpload(e){const f=e.target.files[0];if(!f||!uploadArea)return;setAppError("");const path=`${uploadArea}/${Date.now()}_${f.name}`;const {error:uploadError}=await supabase.storage.from("materiais").upload(path,f);if(uploadError){setAppError("Nao foi possivel enviar o arquivo.");e.target.value="";return;}const {data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const {error:insertError}=await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});if(insertError){setAppError("Arquivo enviado, mas nao foi possivel salvar na lista de materiais.");e.target.value="";return;}setUploadArea(null);e.target.value="";loadMateriais();}
-  async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo){setAppError("Preencha pelo menos o titulo e o prazo da demanda.");return;}setAppError("");const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;const {error}=await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});if(error){setAppError("Nao foi possivel criar a demanda.");return;}setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);loadDemandas();}
+  async function loadDemandas(){const {data,error}=await supabase.from("demandas").select("*").order("criado_em",{ascending:false});if(error){setAppError("Não foi possível carregar as demandas.");return;}setDemandas(data||[]);}
+  async function loadEventos(){const {data,error}=await supabase.from("eventos").select("*").order("data");if(error){setAppError("Não foi possível carregar a agenda.");return;}setEventos(data||[]);}
+  async function loadMateriais(){const {data,error}=await supabase.from("materiais").select("*").order("criado_em");if(error){setAppError("Não foi possível carregar os materiais.");return;}const g={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
+  async function loadMembers(){const {data,error}=await supabase.from("profiles").select("*").order("name");if(error){setAppError("Não foi possível carregar os membros.");return;}setMembers(data||[]);}
+  async function updateMemberRole(id,role,area){const {error}=await supabase.from("profiles").update({role,area}).eq("id",id);if(error){setAppError("Não foi possível atualizar este membro.");return;}setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
+  async function handleUpload(e){const f=e.target.files[0];if(!f||!uploadArea)return;setAppError("");const path=`${uploadArea}/${Date.now()}_${f.name}`;const {error:uploadError}=await supabase.storage.from("materiais").upload(path,f);if(uploadError){setAppError("Não foi possível enviar o arquivo.");e.target.value="";return;}const {data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const {error:insertError}=await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});if(insertError){setAppError("Arquivo enviado, mas não foi possível salvar na lista de materiais.");e.target.value="";return;}setUploadArea(null);e.target.value="";loadMateriais();}
+  async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo){setAppError("Preencha pelo menos o título e o prazo da demanda.");return;}setAppError("");const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;const {error}=await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});if(error){setAppError("Não foi possível criar a demanda.");return;}setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);loadDemandas();}
   async function logout(){await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
 
-  // â”€â”€ loading / auth guards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── loading / auth guards ─────────────────────────────────
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.white}}><Spinner/></div>;
   if(!user)return<AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
   if(screen==="profile")return<ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
@@ -796,7 +796,7 @@ export default function BCApp() {
   const totalAbertas   = myDemandas.filter(d=>d.status!=="concluido").length;
   const totalConcluidas= myDemandas.filter(d=>d.status==="concluido").length;
 
-  const TABS=[{id:"inicio",label:"InÃ­cio",icon:Ic.home},{id:"demandas",label:"Demandas",icon:Ic.check},{id:"calendario",label:"Agenda",icon:Ic.cal},{id:"materiais",label:"Materiais",icon:Ic.folder}];
+  const TABS=[{id:"inicio",label:"Início",icon:Ic.home},{id:"demandas",label:"Demandas",icon:Ic.check},{id:"calendario",label:"Agenda",icon:Ic.cal},{id:"materiais",label:"Materiais",icon:Ic.folder}];
   const TAB_LABEL={inicio:"Painel",demandas:"Demandas",calendario:"Agenda",materiais:"Materiais"};
 
   return (
@@ -804,7 +804,7 @@ export default function BCApp() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box;} input::placeholder,textarea::placeholder{color:#9CA3AF;} input:focus,textarea:focus,select:focus{outline:none;border-color:${C.blue}!important;} button{font-family:inherit;} ::-webkit-scrollbar{display:none;} select{font-family:inherit;} @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}} @keyframes fadeIn{from{opacity:0}to{opacity:1}}`}</style>
       <input ref={uploadRef} type="file" style={{display:"none"}} onChange={handleUpload}/>
 
-      {/* â”€â”€ DRAWER (menu lateral) â”€â”€ */}
+      {/* ── DRAWER (menu lateral) ── */}
       {drawer&&(
         <>
           {/* Backdrop */}
@@ -817,7 +817,7 @@ export default function BCApp() {
                 <div style={{background:C.blue,padding:"36px 20px 24px"}}>
                   <Avatar user={user} size={56}/>
                   <div style={{color:C.white,fontWeight:700,fontSize:16,marginTop:12}}>{user.name}</div>
-                  <div style={{color:"rgba(255,255,255,.7)",fontSize:12,marginTop:4}}>{getRoleLabel(user.role)} Â· {user.area}</div>
+                  <div style={{color:"rgba(255,255,255,.7)",fontSize:12,marginTop:4}}>{getRoleLabel(user.role)} · {user.area}</div>
                 </div>
                 {/* Options */}
                 <div style={{flex:1,overflowY:"auto"}}>
@@ -825,7 +825,7 @@ export default function BCApp() {
                     <div style={{width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{Ic.user()}</div>
                     <div style={{flex:1,textAlign:"left"}}>
                       <div style={{fontSize:14,fontWeight:600,color:C.text}}>Meu Perfil</div>
-                      <div style={{fontSize:12,color:C.sub,marginTop:2}}>Editar informaÃ§Ãµes e foto</div>
+                      <div style={{fontSize:12,color:C.sub,marginTop:2}}>Editar informações e foto</div>
                     </div>
                     {Ic.chevR()}
                   </button>
@@ -857,7 +857,7 @@ export default function BCApp() {
                   {["presidente","vice","diretor","membro"].map(role=>{
                     const group=members.filter(m=>m.role===role);
                     if(!group.length)return null;
-                    const rl={presidente:"PresidÃªncia",vice:"Vice-PresidÃªncia",diretor:"Diretores",membro:"Assessores"};
+                    const rl={presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
                     return(
                       <div key={role}>
                         <div style={{padding:"12px 16px 6px"}}><span style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{rl[role]}</span></div>
@@ -881,7 +881,7 @@ export default function BCApp() {
                                 </select>
                                 <select defaultValue={m.area} onChange={e=>updateMemberRole(m.id,m.role,e.target.value)}
                                   style={{flex:2,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  {["PresidÃªncia",...AREAS].map(a=><option key={a}>{a}</option>)}
+                                  {["Presidência",...AREAS].map(a=><option key={a}>{a}</option>)}
                                 </select>
                               </div>
                             )}
@@ -897,10 +897,10 @@ export default function BCApp() {
         </>
       )}
 
-      {/* â”€â”€ Header â”€â”€ */}
+      {/* ── Header ── */}
       <div style={{position:"sticky",top:0,zIndex:40,background:C.white,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:2.5,color:C.blue,textTransform:"uppercase"}}>Business Consultoria Â· UEL</div>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:2.5,color:C.blue,textTransform:"uppercase"}}>Business Consultoria · UEL</div>
           <div style={{fontSize:19,fontWeight:700,marginTop:1}}>{TAB_LABEL[tab]}</div>
         </div>
         <button onClick={()=>setDrawer(true)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
@@ -908,17 +908,17 @@ export default function BCApp() {
         </button>
       </div>
 
-      {/* â”€â”€ Body â”€â”€ */}
+      {/* ── Body ── */}
       <div style={{paddingBottom:88}}>
         {appError&&<div style={{margin:"12px 20px 0",padding:"10px 12px",borderRadius:10,background:"#FEF2F2",color:C.red,fontSize:13,fontWeight:600}}>{appError}</div>}
 
-        {/* INÃCIO */}
+        {/* INÍCIO */}
         {tab==="inicio"&&(<>
           <div style={{margin:"16px 20px 0",background:C.blue,borderRadius:16,padding:"22px 20px",color:C.white,position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",right:-30,top:-30,width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
             <div style={{fontSize:12,opacity:.65,marginBottom:4}}>{getDataAtual()}</div>
-            <div style={{fontSize:22,fontWeight:700}}>{getSaudacao()}, {user.name?.split(" ")[0]} âœ¦</div>
-            <div style={{fontSize:12,opacity:.65,marginTop:4}}>{user.area} Â· {getRoleLabel(user.role)}</div>
+            <div style={{fontSize:22,fontWeight:700}}>{getSaudacao()}, {user.name?.split(" ")[0]} ✦</div>
+            <div style={{fontSize:12,opacity:.65,marginTop:4}}>{user.area} · {getRoleLabel(user.role)}</div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,margin:"12px 20px 0"}}>
             <div onClick={()=>setTab("demandas")} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 16px",cursor:"pointer"}}>
@@ -927,13 +927,13 @@ export default function BCApp() {
               <div style={{fontSize:12,color:C.sub,marginTop:4}}>demanda{totalAbertas!==1?"s":""}</div>
             </div>
             <div onClick={()=>setTab("demandas")} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 16px",cursor:"pointer"}}>
-              <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>ConcluÃ­das</div>
+              <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Concluídas</div>
               <div style={{fontSize:32,fontWeight:800,color:C.green}}>{totalConcluidas}</div>
               <div style={{fontSize:12,color:C.sub,marginTop:4}}>demanda{totalConcluidas!==1?"s":""}</div>
             </div>
           </div>
           {nextEventos.length>0&&(<>
-            <SLabel>PrÃ³ximos eventos</SLabel>
+            <SLabel>Próximos eventos</SLabel>
             {nextEventos.map((ev,i)=>(
               <div key={ev.id}>
                 <div style={{padding:"12px 20px",display:"flex",gap:14,alignItems:"center"}}>
@@ -941,18 +941,18 @@ export default function BCApp() {
                     <span style={{fontSize:16,fontWeight:800,color:C.blue,lineHeight:1}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span>
                     <span style={{fontSize:9,fontWeight:700,color:C.blue,opacity:.6,textTransform:"uppercase"}}>{MONTHS[new Date((ev.data||ev.date)+"T00:00:00").getMonth()].slice(0,3)}</span>
                   </div>
-                  <div><div style={{fontSize:14,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{ev.hora}{ev.local&&` Â· ${ev.local}`}</div></div>
+                  <div><div style={{fontSize:14,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div>
                 </div>
                 {i<nextEventos.length-1&&<Divider/>}
               </div>
             ))}
           </>)}
           {urgentes.length>0&&(<>
-            <SLabel>Demandas prioritÃ¡rias</SLabel>
+            <SLabel>Demandas prioritárias</SLabel>
             {urgentes.slice(0,3).map((d,i)=>(
               <div key={d.id}>
                 <div onClick={()=>{setSelectedD(d.id);setScreen("demanda");}} style={{padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,cursor:"pointer"}}>
-                  <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{d.resp||"â€”"} Â· Prazo {fmtDate(d.prazo)}</div></div>
+                  <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{d.resp||"—"} · Prazo {fmtDate(d.prazo)}</div></div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}><Pill status={d.status}/>{Ic.chevR()}</div>
                 </div>
                 {i<urgentes.slice(0,3).length-1&&<Divider/>}
@@ -961,9 +961,9 @@ export default function BCApp() {
           </>)}
           {urgentes.length===0&&nextEventos.length===0&&(
             <div style={{margin:"32px 20px",background:C.white,border:`1px solid ${C.border}`,borderRadius:16,padding:"32px 20px",textAlign:"center"}}>
-              <div style={{fontSize:32,marginBottom:12}}>âœ¦</div>
+              <div style={{fontSize:32,marginBottom:12}}>✦</div>
               <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>Tudo em dia!</div>
-              <div style={{fontSize:13,color:C.sub}}>Nenhuma demanda pendente ou evento prÃ³ximo.</div>
+              <div style={{fontSize:13,color:C.sub}}>Nenhuma demanda pendente ou evento próximo.</div>
             </div>
           )}
         </>)}
@@ -971,19 +971,19 @@ export default function BCApp() {
         {/* DEMANDAS */}
         {tab==="demandas"&&(<>
           <div style={{padding:"14px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            {canSeeAll(user)?<div style={{fontSize:12,color:C.blue,fontWeight:600,background:C.blueSoft,borderRadius:99,padding:"5px 14px"}}>Todas as Ã¡reas</div>:<div style={{fontSize:12,color:C.sub,background:C.white,border:`1px solid ${C.border}`,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5}}>{Ic.lock()} {user.area}</div>}
+            {canSeeAll(user)?<div style={{fontSize:12,color:C.blue,fontWeight:600,background:C.blueSoft,borderRadius:99,padding:"5px 14px"}}>Todas as áreas</div>:<div style={{fontSize:12,color:C.sub,background:C.white,border:`1px solid ${C.border}`,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5}}>{Ic.lock()} {user.area}</div>}
             {canManage(user)&&<button onClick={()=>setDForm(v=>!v)} style={{width:32,height:32,borderRadius:9,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}
           </div>
           {dForm&&canManage(user)&&(
             <div style={{margin:"12px 20px 0",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
               <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Nova demanda</div>
-              <Inp label="TÃ­tulo" value={dNovo.titulo} onChange={e=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
-              <Inp label="ResponsÃ¡vel" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}/>
+              <Inp label="Título" value={dNovo.titulo} onChange={e=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
+              <Inp label="Responsável" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}/>
               <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={e=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
               <Sel label="Prioridade" value={dNovo.prioridade} onChange={e=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
-              <Txt label="DescriÃ§Ã£o" value={dNovo.descricao} rows={3} onChange={e=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
-              <Txt label="ObservaÃ§Ãµes" value={dNovo.obs} rows={2} onChange={e=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="ObservaÃ§Ãµes adicionais..."/>
-              {canSeeAll(user)&&<Sel label="Ãrea" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
+              <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={e=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
+              <Txt label="Observações" value={dNovo.obs} rows={2} onChange={e=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
+              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
               <div style={{display:"flex",gap:8}}><Btn onClick={addDemanda} style={{flex:1}}>Criar</Btn><Btn variant="secondary" onClick={()=>setDForm(false)} style={{flex:1}}>Cancelar</Btn></div>
             </div>
           )}
@@ -997,7 +997,7 @@ export default function BCApp() {
                     <div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div>
                     {d.descricao&&<div style={{fontSize:12,color:C.sub,marginTop:2,lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{d.descricao}</div>}
                     <div style={{display:"flex",gap:10,marginTop:5,flexWrap:"wrap"}}>
-                      <span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.person()}{d.resp||"â€”"}</span>
+                      <span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.person()}{d.resp||"—"}</span>
                       <span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.cal2()}{fmtDate(d.prazo)}</span>
                       {canSeeAll(user)&&<span style={{fontSize:11,color:C.blue,fontWeight:500}}>{d.area}</span>}
                     </div>
@@ -1013,12 +1013,12 @@ export default function BCApp() {
           ))}
         </>)}
 
-        {/* CALENDÃRIO */}
+        {/* CALENDÁRIO */}
         {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={ev=>setEventos(p=>[...p,ev])}/>}
 
         {/* MATERIAIS */}
         {tab==="materiais"&&(<>
-          <SLabel>Pastas por Ã¡rea</SLabel>
+          <SLabel>Pastas por área</SLabel>
           {AREAS.map((area,ai)=>{
             const isOpen=openFolder===area,files=materiais[area]||[];
             const canUp=canManage(user)&&(canSeeAll(user)||user.area===area||area==="Geral");
@@ -1056,7 +1056,7 @@ export default function BCApp() {
               </div>
             );
           })}
-          <div style={{padding:"16px 20px",textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>Drive continua como backup automÃ¡tico</span></div>
+          <div style={{padding:"16px 20px",textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>Drive continua como backup automático</span></div>
         </>)}
       </div>
 
@@ -1067,5 +1067,8 @@ export default function BCApp() {
     </div>
   );
 }
+
+
+
 
 
