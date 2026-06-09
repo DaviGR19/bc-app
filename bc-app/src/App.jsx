@@ -129,6 +129,11 @@ function ImageCropper({ src, aspect, onCrop, onCancel }) {
   }, [src]);
 
   function clampOffset(x, y, currentScale = scale) {
+    console.log({
+  imgWidth: imgSize.width,
+  imgHeight: imgSize.height,
+  scale: currentScale
+});
     const iw = imgSize.width * currentScale;
     const ih = imgSize.height * currentScale;
 
