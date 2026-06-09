@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
+import { AvatarCropper, BannerCropper } from "./ImageCropper";
 
 const C = {
   blue:"#1A56DB", blueSoft:"#EEF3FF", blueMid:"#DBEAFE",
@@ -35,7 +36,6 @@ function canSeeAll(u) { return u?.role==="presidente"||u?.role==="vice"; }
 function canManage(u) { return u?.role==="presidente"||u?.role==="vice"||u?.role==="diretor"; }
 function getRoleLabel(r) { return {presidente:"Presidente",vice:"Vice-Presidente",diretor:"Diretor(a)",membro:"Assessor(a)"}[r]||r; }
 
-// ── atoms ─────────────────────────────────────────────────────
 function Pill({status}){const s=STATUS[status]||STATUS.pendente;return<span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99,color:s.color,background:s.bg,whiteSpace:"nowrap"}}>{s.label}</span>;}
 function Divider({m=20}){return<div style={{height:1,background:C.border,margin:`0 ${m}px`}}/>;}
 function SLabel({children,action}){return<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 10px"}}><span style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{children}</span>{action}</div>;}
@@ -47,7 +47,6 @@ function Btn({children,variant="primary",full,small,onClick,disabled,style={}}){
 function Avatar({user,size=38}){if(user?.avatar)return<img src={user.avatar} alt="" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0}}/>;return<div style={{width:size,height:size,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.34,fontWeight:700,color:C.white,flexShrink:0}}>{user?.initials||"?"}</div>;}
 function Spinner(){return<div style={{display:"flex",justifyContent:"center",padding:"40px 0"}}><div style={{width:28,height:28,border:`3px solid ${C.border}`,borderTopColor:C.blue,borderRadius:"50%",animation:"spin .8s linear infinite"}}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;}
 
-// ── icons ──────────────────────────────────────────────────────
 const Ic={
   home:  c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
   check: c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
@@ -75,378 +74,6 @@ const Ic={
   user:  c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
 };
 
-// ── Image Cropper ─────────────────────────────────────────────
-function ImageCropper({ src, aspect, onCrop, onCancel }) {
-  const isSquare = aspect === "square";
-
-  const W = isSquare ? 260 : 320;
-  const H = isSquare ? 260 : 180;
-
-  const imgRef = useRef(null);
-
-  const [imgSize, setImgSize] = useState({
-    width: 1,
-    height: 1
-  });
-
-  const [scale, setScale] = useState(1);
-  const [minScale, setMinScale] = useState(1);
-
-  const maxScale = 5;
-
-  const [offset, setOffset] = useState({
-    x: 0,
-    y: 0
-  });
-
-  const dragRef = useRef(null);
-  const pinchRef = useRef(null);
-
-  useEffect(() => {
-    const img = new Image();
-
-    img.onload = () => {
-      const fitScale = Math.max(
-        W / img.width,
-        H / img.height
-      );
-
-      setImgSize({
-        width: img.width,
-        height: img.height
-      });
-
-      setMinScale(fitScale);
-      setScale(fitScale);
-
-      setOffset({
-        x: 0,
-        y: 0
-      });
-    };
-
-    img.src = src;
-  }, [src]);
-
-  function clampOffset(x, y, currentScale = scale) {
-    console.log({
-  imgWidth: imgSize.width,
-  imgHeight: imgSize.height,
-  scale: currentScale
-});
-    const iw = imgSize.width * currentScale;
-    const ih = imgSize.height * currentScale;
-
-    const maxX = Math.max(
-      0,
-      (iw - W) / 2
-    );
-
-    const maxY = Math.max(
-      0,
-      (ih - H) / 2
-    );
-
-    return {
-      x: Math.min(maxX, Math.max(-maxX, x)),
-      y: Math.min(maxY, Math.max(-maxY, y))
-    };
-  }
-
-  function getPos(e) {
-    if (e.touches) {
-      return {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY
-      };
-    }
-
-    return {
-      x: e.clientX,
-      y: e.clientY
-    };
-  }
-
-  function getDistance(touches) {
-    const dx =
-      touches[0].clientX -
-      touches[1].clientX;
-
-    const dy =
-      touches[0].clientY -
-      touches[1].clientY;
-
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  function onStart(e) {
-    e.preventDefault();
-
-    if (e.touches?.length === 2) {
-      pinchRef.current = {
-        startDistance: getDistance(e.touches),
-        startScale: scale
-      };
-
-      return;
-    }
-
-    dragRef.current = {
-      ...getPos(e),
-      ox: offset.x,
-      oy: offset.y
-    };
-  }
-
-  function onMove(e) {
-    if (
-      e.touches?.length === 2 &&
-      pinchRef.current
-    ) {
-      e.preventDefault();
-
-      const ratio =
-        getDistance(e.touches) /
-        pinchRef.current.startDistance;
-
-      let newScale =
-        pinchRef.current.startScale *
-        ratio;
-
-      newScale = Math.max(
-        minScale,
-        Math.min(maxScale, newScale)
-      );
-
-      setScale(newScale);
-
-      setOffset(prev =>
-        clampOffset(
-          prev.x,
-          prev.y,
-          newScale
-        )
-      );
-
-      return;
-    }
-
-    if (!dragRef.current) return;
-
-    e.preventDefault();
-
-    const p = getPos(e);
-
-    const nx =
-      dragRef.current.ox +
-      (p.x - dragRef.current.x);
-
-    const ny =
-      dragRef.current.oy +
-      (p.y - dragRef.current.y);
-
-    setOffset(clampOffset(nx, ny));
-  }
-
-  function onEnd() {
-    dragRef.current = null;
-    pinchRef.current = null;
-  }
-
-  function handleCrop() {
-    const out = document.createElement("canvas");
-
-    out.width = isSquare ? 400 : 800;
-    out.height = isSquare ? 400 : 450;
-
-    const ctx = out.getContext("2d");
-
-    const img = new Image();
-
-    img.onload = () => {
-      const scaleOut = out.width / W;
-
-      const iw =
-        imgSize.width *
-        scale *
-        scaleOut;
-
-      const ih =
-        imgSize.height *
-        scale *
-        scaleOut;
-
-      const dx =
-        ((W -
-          imgSize.width *
-            scale) /
-          2 +
-          offset.x) *
-        scaleOut;
-
-      const dy =
-        ((H -
-          imgSize.height *
-            scale) /
-          2 +
-          offset.y) *
-        scaleOut;
-
-      if (isSquare) {
-        ctx.beginPath();
-
-        ctx.arc(
-          out.width / 2,
-          out.height / 2,
-          out.width / 2,
-          0,
-          Math.PI * 2
-        );
-
-        ctx.clip();
-      }
-
-      ctx.drawImage(
-        img,
-        dx,
-        dy,
-        iw,
-        ih
-      );
-
-      out.toBlob(
-        b => onCrop(b),
-        "image/jpeg",
-        0.92
-      );
-    };
-
-    img.src = src;
-  }
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background:
-          "rgba(0,0,0,.8)",
-        zIndex: 999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16
-      }}
-    >
-      <div
-        style={{
-          background: C.white,
-          borderRadius: 20,
-          padding: 20,
-          width: "100%",
-          maxWidth: 360
-        }}
-      >
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: 700,
-            marginBottom: 4
-          }}
-        >
-          Ajustar foto
-        </div>
-
-        <div
-          style={{
-            fontSize: 12,
-            color: C.sub,
-            marginBottom: 14
-          }}
-        >
-          Arraste para posicionar ·
-          Use dois dedos para zoom
-        </div>
-
-        <div
-          onMouseDown={onStart}
-          onMouseMove={onMove}
-          onMouseUp={onEnd}
-          onMouseLeave={onEnd}
-          onTouchStart={onStart}
-          onTouchMove={onMove}
-          onTouchEnd={onEnd}
-          style={{
-            width: W,
-            height: H,
-            margin: "0 auto 14px",
-            overflow: "hidden",
-            position: "relative",
-            touchAction: "none",
-            borderRadius:
-              isSquare
-                ? "50%"
-                : 10,
-            border:
-              `3px solid ${C.blue}`
-          }}
-        >
-<img
-  ref={imgRef}
-  src={src}
-  draggable={false}
-  style={{
-    position: "absolute",
-    left: "50%",
-    top: "50%",
-
-    width: imgSize.width,
-    height: imgSize.height,
-
-    userSelect: "none",
-    pointerEvents: "none",
-
-    transform: `
-      translate(
-        calc(-50% + ${offset.x}px),
-        calc(-50% + ${offset.y}px)
-      )
-      scale(${scale})
-    `,
-
-    transformOrigin: "center center"
-  }}
-/>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 10
-          }}
-        >
-          <button
-            onClick={onCancel}
-            style={{
-              flex: 1
-            }}
-          >
-            Cancelar
-          </button>
-
-          <button
-            onClick={handleCrop}
-            style={{
-              flex: 1
-            }}
-          >
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 // ── Auth ──────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [mode,setMode]=useState("login");
@@ -525,28 +152,31 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   const [pwErr,setPwErr]=useState("");
   const [loading,setLoading]=useState(false);
   const [cropSrc,setCropSrc]=useState(null);
-  const [cropAspect,setCropAspect]=useState("square");
+  const [cropType,setCropType]=useState(null); // "avatar" | "banner"
   const [bannerColor,setBannerColor]=useState(user.bannerColor||C.blue);
   const avatarRef=useRef();
   const bannerRef=useRef();
 
-  function pickFile(ref,aspect){setCropAspect(aspect);ref.current.click();}
-  function onFileChange(e,aspect){
+  function onFileChange(e,type){
     const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();r.onload=ev=>{setCropSrc(ev.target.result);setCropAspect(aspect);};r.readAsDataURL(f);e.target.value="";
+    const r=new FileReader();
+    r.onload=ev=>{setCropSrc(ev.target.result);setCropType(type);};
+    r.readAsDataURL(f);e.target.value="";
   }
+
   async function onCrop(blob){
-    const isAvatar=cropAspect==="square";
-    const path=`${user.id}_${isAvatar?"avatar":"banner"}.jpg`;
+    const path=`${user.id}_${cropType}.jpg`;
     await supabase.storage.from("avatars").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
     const {data}=supabase.storage.from("avatars").getPublicUrl(path);
     const url=data.publicUrl+"?t="+Date.now();
-    const field=isAvatar?"avatar":"bannerImg";
+    const field=cropType==="avatar"?"avatar":"bannerImg";
     await supabase.from("profiles").update({[field]:url}).eq("id",user.id);
     onUpdate({[field]:url});
-    setCropSrc(null);
+    setCropSrc(null);setCropType(null);
   }
+
   async function saveBannerColor(c){setBannerColor(c);await supabase.from("profiles").update({bannerColor:c}).eq("id",user.id);onUpdate({bannerColor:c});}
+
   async function handleSave(){
     if(pw&&pw!==pw2){setPwErr("As senhas não coincidem.");return;}
     setPwErr("");setLoading(true);
@@ -556,15 +186,17 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
     onUpdate({name,bio,initials});setPw("");setPw2("");setLoading(false);setSaved(true);setTimeout(()=>setSaved(false),2500);
   }
 
-  const bannerStyle=user.bannerImg
-    ?{background:`url(${user.bannerImg}) center/cover no-repeat`}
-    :{background:bannerColor};
+  const bannerStyle=user.bannerImg?{background:`url(${user.bannerImg}) center/cover no-repeat`}:{background:bannerColor};
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box;} input:focus,textarea:focus,select:focus{outline:none;border-color:${C.blue}!important;} button{font-family:inherit;} ::-webkit-scrollbar{display:none;}`}</style>
-      {cropSrc&&<ImageCropper src={cropSrc} aspect={cropAspect} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>}
-      <input ref={avatarRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"square")}/>
+
+      {/* Croppers */}
+      {cropSrc&&cropType==="avatar"&&<AvatarCropper src={cropSrc} onCrop={onCrop} onCancel={()=>{setCropSrc(null);setCropType(null);}}/>}
+      {cropSrc&&cropType==="banner"&&<BannerCropper src={cropSrc} onCrop={onCrop} onCancel={()=>{setCropSrc(null);setCropType(null);}}/>}
+
+      <input ref={avatarRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"avatar")}/>
       <input ref={bannerRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"banner")}/>
 
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
@@ -572,16 +204,13 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
         <span style={{fontSize:17,fontWeight:700}}>Meu Perfil</span>
       </div>
 
-      {/* Banner */}
       <div style={{...bannerStyle,padding:"28px 20px 48px",textAlign:"center",position:"relative",minHeight:150}}>
-        {/* botão trocar banner */}
-        <button onClick={()=>pickFile(bannerRef,"banner")} style={{position:"absolute",top:10,right:10,display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,background:"rgba(0,0,0,0.35)",border:"1px solid rgba(255,255,255,0.3)",cursor:"pointer",color:"white",fontSize:12,fontWeight:600}}>
+        <button onClick={()=>bannerRef.current.click()} style={{position:"absolute",top:10,right:10,display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,background:"rgba(0,0,0,0.35)",border:"1px solid rgba(255,255,255,0.3)",cursor:"pointer",color:"white",fontSize:12,fontWeight:600}}>
           {Ic.image()} Trocar fundo
         </button>
-        {/* avatar */}
         <div style={{position:"relative",display:"inline-block"}}>
           <Avatar user={user} size={84}/>
-          <button onClick={()=>pickFile(avatarRef,"square")} style={{position:"absolute",bottom:0,right:0,width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.5)",border:"2px solid white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <button onClick={()=>avatarRef.current.click()} style={{position:"absolute",bottom:0,right:0,width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.5)",border:"2px solid white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
             {Ic.camera()}
           </button>
         </div>
@@ -590,25 +219,15 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
       </div>
 
       <div style={{margin:"-20px 16px 0",background:C.white,borderRadius:16,border:`1px solid ${C.border}`,padding:20,position:"relative",zIndex:1}}>
-        {/* cor do banner */}
         {!user.bannerImg&&(
           <div style={{marginBottom:16}}>
             <FL>Cor do fundo</FL>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {BG_COLORS.map(bc=>(
-                <button key={bc} onClick={()=>saveBannerColor(bc)} style={{width:32,height:32,borderRadius:"50%",background:bc,border:bannerColor===bc?`3px solid ${C.text}`:"3px solid transparent",cursor:"pointer",transition:"transform .15s",transform:bannerColor===bc?"scale(1.15)":"scale(1)"}}/>
-              ))}
+              {BG_COLORS.map(bc=><button key={bc} onClick={()=>saveBannerColor(bc)} style={{width:32,height:32,borderRadius:"50%",background:bc,border:bannerColor===bc?`3px solid ${C.text}`:"3px solid transparent",cursor:"pointer",transition:"transform .15s",transform:bannerColor===bc?"scale(1.15)":"scale(1)"}}/>)}
             </div>
           </div>
         )}
-        {user.bannerImg&&(
-          <div style={{marginBottom:16}}>
-            <button onClick={async()=>{await supabase.from("profiles").update({bannerImg:""}).eq("id",user.id);onUpdate({bannerImg:""});}}
-              style={{fontSize:12,color:C.red,background:"#FEF2F2",border:"none",padding:"6px 12px",borderRadius:8,cursor:"pointer",fontWeight:600}}>
-              Remover imagem de fundo
-            </button>
-          </div>
-        )}
+        {user.bannerImg&&<div style={{marginBottom:16}}><button onClick={async()=>{await supabase.from("profiles").update({bannerImg:""}).eq("id",user.id);onUpdate({bannerImg:""});}} style={{fontSize:12,color:C.red,background:"#FEF2F2",border:"none",padding:"6px 12px",borderRadius:8,cursor:"pointer",fontWeight:600}}>Remover imagem de fundo</button></div>}
         <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>Informações pessoais</div>
         <Inp label="Nome completo" value={name} onChange={e=>setName(e.target.value)}/>
         <div style={{marginBottom:12}}><FL>E-mail</FL><div style={{padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.muted,background:"#f9fafb"}}>{user.email}</div></div>
@@ -633,38 +252,15 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
   const [anexos,setAnexos]=useState([]);
   const [uploading,setUploading]=useState(false);
   const anexoRef=useRef();
-
   useEffect(()=>{supabase.from("anexos").select("*").eq("demanda_id",demanda.id).then(({data})=>setAnexos(data||[]));},[demanda.id]);
-
-  async function save(){
-    const {data}=await supabase.from("demandas").update({titulo:form.titulo,descricao:form.descricao,obs:form.obs,resp:form.resp,prazo:form.prazo,status:form.status,prioridade:form.prioridade}).eq("id",demanda.id).select().single();
-    onUpdate(data);setEditing(false);
-  }
-  async function handleAnexo(e){
-    const f=e.target.files[0];if(!f)return;setUploading(true);
-    const path=`${demanda.id}/${Date.now()}_${f.name}`;
-    await supabase.storage.from("anexos").upload(path,f);
-    const {data:url}=supabase.storage.from("anexos").getPublicUrl(path);
-    const ext=f.name.split(".").pop().toUpperCase();
-    const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;
-    const {data:anx}=await supabase.from("anexos").insert({demanda_id:demanda.id,nome:f.name,tipo:ext,tamanho:tam,url:url.publicUrl}).select().single();
-    setAnexos(p=>[...p,anx]);setUploading(false);e.target.value="";
-  }
-
+  async function save(){const{data}=await supabase.from("demandas").update({titulo:form.titulo,descricao:form.descricao,obs:form.obs,resp:form.resp,prazo:form.prazo,status:form.status,prioridade:form.prioridade}).eq("id",demanda.id).select().single();onUpdate(data);setEditing(false);}
+  async function handleAnexo(e){const f=e.target.files[0];if(!f)return;setUploading(true);const path=`${demanda.id}/${Date.now()}_${f.name}`;await supabase.storage.from("anexos").upload(path,f);const{data:url}=supabase.storage.from("anexos").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const{data:anx}=await supabase.from("anexos").insert({demanda_id:demanda.id,nome:f.name,tipo:ext,tamanho:tam,url:url.publicUrl}).select().single();setAnexos(p=>[...p,anx]);setUploading(false);e.target.value="";}
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box;} input:focus,textarea:focus,select:focus{outline:none;border-color:${C.blue}!important;} button{font-family:inherit;} ::-webkit-scrollbar{display:none;}`}</style>
       <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}>{Ic.back()}</button>
-          <span style={{fontSize:17,fontWeight:700}}>Demanda</span>
-        </div>
-        {canEdit&&!editing&&(
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setEditing(true)} style={{width:32,height:32,borderRadius:8,border:`1px solid ${C.border}`,background:C.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.edit()}</button>
-            <button onClick={onDelete} style={{width:32,height:32,borderRadius:8,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>
-          </div>
-        )}
+        <div style={{display:"flex",alignItems:"center",gap:12}}><button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}>{Ic.back()}</button><span style={{fontSize:17,fontWeight:700}}>Demanda</span></div>
+        {canEdit&&!editing&&<div style={{display:"flex",gap:8}}><button onClick={()=>setEditing(true)} style={{width:32,height:32,borderRadius:8,border:`1px solid ${C.border}`,background:C.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.edit()}</button><button onClick={onDelete} style={{width:32,height:32,borderRadius:8,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button></div>}
       </div>
       <div style={{padding:"16px 20px"}}>
         {editing?(
@@ -673,26 +269,16 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
             <Inp label="Título" value={form.titulo} onChange={e=>setForm(v=>({...v,titulo:e.target.value}))}/>
             <Inp label="Responsável" value={form.resp} onChange={e=>setForm(v=>({...v,resp:e.target.value}))}/>
             <Inp label="Prazo" type="date" value={form.prazo} onChange={e=>setForm(v=>({...v,prazo:e.target.value}))}/>
-            <Sel label="Status" value={form.status} onChange={e=>setForm(v=>({...v,status:e.target.value}))}>
-              {Object.entries(STATUS).map(([k,s])=><option key={k} value={k}>{s.label}</option>)}
-            </Sel>
-            <Sel label="Prioridade" value={form.prioridade} onChange={e=>setForm(v=>({...v,prioridade:e.target.value}))}>
-              {Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
-            </Sel>
+            <Sel label="Status" value={form.status} onChange={e=>setForm(v=>({...v,status:e.target.value}))}>{Object.entries(STATUS).map(([k,s])=><option key={k} value={k}>{s.label}</option>)}</Sel>
+            <Sel label="Prioridade" value={form.prioridade} onChange={e=>setForm(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
             <Txt label="Descrição" value={form.descricao} rows={4} onChange={e=>setForm(v=>({...v,descricao:e.target.value}))}/>
             <Txt label="Observações" value={form.obs} rows={3} onChange={e=>setForm(v=>({...v,obs:e.target.value}))}/>
-            <div style={{display:"flex",gap:8}}>
-              <Btn onClick={save} style={{flex:1}}>Salvar</Btn>
-              <Btn variant="secondary" onClick={()=>setEditing(false)} style={{flex:1}}>Cancelar</Btn>
-            </div>
+            <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1}}>Salvar</Btn><Btn variant="secondary" onClick={()=>setEditing(false)} style={{flex:1}}>Cancelar</Btn></div>
           </div>
         ):(
           <>
             <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:12}}>
-                <div style={{fontSize:18,fontWeight:700,flex:1}}>{demanda.titulo}</div>
-                <Pill status={demanda.status}/>
-              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:12}}><div style={{fontSize:18,fontWeight:700,flex:1}}>{demanda.titulo}</div><Pill status={demanda.status}/></div>
               <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
                 <span style={{fontSize:12,color:C.sub,display:"flex",alignItems:"center",gap:4}}>{Ic.person()}{demanda.resp||"—"}</span>
                 <span style={{fontSize:12,color:C.sub,display:"flex",alignItems:"center",gap:4}}>{Ic.cal2()}{fmtDate(demanda.prazo)}</span>
@@ -705,14 +291,7 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
               <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Anexos</div>
               <input ref={anexoRef} type="file" style={{display:"none"}} onChange={handleAnexo}/>
               {anexos.length>0?anexos.map((a,i)=>(
-                <div key={a.id}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0"}}>
-                    <div style={{width:32,height:32,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:800,color:C.blue}}>{a.tipo}</span></div>
-                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{a.nome}</div><div style={{fontSize:11,color:C.muted}}>{a.tamanho}</div></div>
-                    <a href={a.url} target="_blank" rel="noreferrer" style={{width:30,height:30,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",textDecoration:"none"}}>{Ic.down()}</a>
-                  </div>
-                  {i<anexos.length-1&&<Divider m={0}/>}
-                </div>
+                <div key={a.id}><div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0"}}><div style={{width:32,height:32,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:800,color:C.blue}}>{a.tipo}</span></div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{a.nome}</div><div style={{fontSize:11,color:C.muted}}>{a.tamanho}</div></div><a href={a.url} target="_blank" rel="noreferrer" style={{width:30,height:30,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",textDecoration:"none"}}>{Ic.down()}</a></div>{i<anexos.length-1&&<Divider m={0}/>}</div>
               )):<div style={{fontSize:13,color:C.muted,textAlign:"center",padding:"8px 0"}}>Nenhum anexo</div>}
               {canEdit&&<button onClick={()=>anexoRef.current.click()} disabled={uploading} style={{marginTop:anexos.length?12:0,width:"100%",padding:"9px",borderRadius:9,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13,opacity:uploading?.6:1}}>{Ic.clip(C.blue)}{uploading?"Enviando...":"Anexar arquivo"}</button>}
             </div>
@@ -730,26 +309,11 @@ function FullCalendar({ eventos, canManage, onAdd }) {
   const [novo,setNovo]=useState({titulo:"",date:"",hora:"",local:""});
   const eventMap={};
   eventos.forEach(ev=>{eventMap[ev.data||ev.date]=ev;});
-
-  async function add(){
-    if(!novo.titulo||!novo.date)return;
-    const {data}=await supabase.from("eventos").insert({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).select().single();
-    onAdd(data);setNovo({titulo:"",date:"",hora:"",local:""});setForm(false);
-  }
-
+  async function add(){if(!novo.titulo||!novo.date)return;const{data}=await supabase.from("eventos").insert({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).select().single();onAdd(data);setNovo({titulo:"",date:"",hora:"",local:""});setForm(false);}
   return (
     <div>
       <SLabel action={canManage&&<button onClick={()=>setForm(v=>!v)} style={{width:28,height:28,borderRadius:8,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}>Calendário 2026</SLabel>
-      {form&&(
-        <div style={{margin:"0 20px 16px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Novo evento</div>
-          <Inp label="Título" value={novo.titulo} onChange={e=>setNovo(v=>({...v,titulo:e.target.value}))}/>
-          <Inp label="Data" type="date" value={novo.date} onChange={e=>setNovo(v=>({...v,date:e.target.value}))}/>
-          <Inp label="Horário" placeholder="ex: 19h00" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/>
-          <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={e=>setNovo(v=>({...v,local:e.target.value}))}/>
-          <div style={{display:"flex",gap:8}}><Btn onClick={add} style={{flex:1}}>Adicionar</Btn><Btn variant="secondary" onClick={()=>setForm(false)} style={{flex:1}}>Cancelar</Btn></div>
-        </div>
-      )}
+      {form&&(<div style={{margin:"0 20px 16px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}><div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Novo evento</div><Inp label="Título" value={novo.titulo} onChange={e=>setNovo(v=>({...v,titulo:e.target.value}))}/><Inp label="Data" type="date" value={novo.date} onChange={e=>setNovo(v=>({...v,date:e.target.value}))}/><Inp label="Horário" placeholder="ex: 19h00" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/><Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={e=>setNovo(v=>({...v,local:e.target.value}))}/><div style={{display:"flex",gap:8}}><Btn onClick={add} style={{flex:1}}>Adicionar</Btn><Btn variant="secondary" onClick={()=>setForm(false)} style={{flex:1}}>Cancelar</Btn></div></div>)}
       {MONTHS.map((mName,mi)=>{
         const days=daysInMonth(year,mi),off=firstDay(year,mi);
         const mEvts=eventos.filter(e=>{const d=new Date((e.data||e.date)+"T00:00:00");return d.getFullYear()===year&&d.getMonth()===mi;});
@@ -759,25 +323,9 @@ function FullCalendar({ eventos, canManage, onAdd }) {
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",textAlign:"center",gap:1}}>
               {DAYS_S.map((d,i)=><div key={i} style={{fontSize:9,fontWeight:700,color:C.muted,paddingBottom:6}}>{d}</div>)}
               {Array.from({length:off}).map((_,i)=><div key={`e${i}`}/>)}
-              {Array.from({length:days},(_,i)=>{
-                const day=i+1,iso=`${year}-${String(mi+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                const has=!!eventMap[iso],isT=iso===todayIso();
-                return <div key={day} style={{width:28,height:28,margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,position:"relative",background:isT?C.blue:"transparent",color:isT?C.white:has?C.blue:C.text,fontWeight:isT||has?700:400}}>{day}{has&&!isT&&<div style={{position:"absolute",bottom:2,width:3,height:3,borderRadius:"50%",background:C.blue}}/>}</div>;
-              })}
+              {Array.from({length:days},(_,i)=>{const day=i+1,iso=`${year}-${String(mi+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;const has=!!eventMap[iso],isT=iso===todayIso();return<div key={day} style={{width:28,height:28,margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,position:"relative",background:isT?C.blue:"transparent",color:isT?C.white:has?C.blue:C.text,fontWeight:isT||has?700:400}}>{day}{has&&!isT&&<div style={{position:"absolute",bottom:2,width:3,height:3,borderRadius:"50%",background:C.blue}}/>}</div>;})}
             </div>
-            {mEvts.length>0&&(
-              <div style={{marginTop:10,borderTop:`1px solid ${C.border}`,paddingTop:10}}>
-                {mEvts.map((ev,i)=>(
-                  <div key={ev.id}>
-                    <div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 2px"}}>
-                      <div style={{minWidth:28,height:28,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,fontWeight:800,color:C.blue}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span></div>
-                      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:11,color:C.sub}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div>
-                    </div>
-                    {i<mEvts.length-1&&<Divider m={0}/>}
-                  </div>
-                ))}
-              </div>
-            )}
+            {mEvts.length>0&&(<div style={{marginTop:10,borderTop:`1px solid ${C.border}`,paddingTop:10}}>{mEvts.map((ev,i)=>(<div key={ev.id}><div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 2px"}}><div style={{minWidth:28,height:28,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,fontWeight:800,color:C.blue}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span></div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:11,color:C.sub}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div></div>{i<mEvts.length-1&&<Divider m={0}/>}</div>))}</div>)}
           </div>
         );
       })}
@@ -785,17 +333,7 @@ function FullCalendar({ eventos, canManage, onAdd }) {
   );
 }
 
-// ── Nav Tab ───────────────────────────────────────────────────
-function NavTab({active,icon,label,onClick}){
-  return(
-    <button onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 12px",transition:"transform .15s",transform:active?"translateY(-2px)":"none"}}>
-      <div style={{width:40,height:32,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:active?C.blueSoft:"transparent",transition:"background .2s"}}>
-        {icon(active?C.blue:C.muted)}
-      </div>
-      <span style={{fontSize:10,fontWeight:700,color:active?C.blue:C.muted,letterSpacing:.3,transition:"color .2s"}}>{label}</span>
-    </button>
-  );
-}
+function NavTab({active,icon,label,onClick}){return(<button onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 12px",transition:"transform .15s",transform:active?"translateY(-2px)":"none"}}><div style={{width:40,height:32,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:active?C.blueSoft:"transparent",transition:"background .2s"}}>{icon(active?C.blue:C.muted)}</div><span style={{fontSize:10,fontWeight:700,color:active?C.blue:C.muted,letterSpacing:.3,transition:"color .2s"}}>{label}</span></button>);}
 
 // ── Main App ──────────────────────────────────────────────────
 export default function BCApp() {
@@ -803,7 +341,7 @@ export default function BCApp() {
   const [loading,  setLoading] = useState(true);
   const [tab,      setTab]     = useState("inicio");
   const [screen,   setScreen]  = useState("app");
-  const [drawer,   setDrawer]  = useState(false); // menu lateral
+  const [drawer,   setDrawer]  = useState(false);
   const [demandas, setDemandas]= useState([]);
   const [eventos,  setEventos] = useState([]);
   const [materiais,setMateriais]=useState({});
@@ -818,10 +356,7 @@ export default function BCApp() {
 
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
-      if(session){
-        const {data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
-        if(p)setUser({...p,email:session.user.email});
-      }
+      if(session){const{data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();if(p)setUser({...p,email:session.user.email});}
       setLoading(false);
     });
   },[]);
@@ -847,21 +382,16 @@ export default function BCApp() {
   async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo)return;const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);}
   async function logout(){await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
 
-  // ── loading / auth guards ─────────────────────────────────
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.white}}><Spinner/></div>;
   if(!user)return<AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
   if(screen==="profile")return<ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
-  if(screen==="demanda"&&selectedD){
-    const d=demandas.find(x=>x.id===selectedD);
-    if(d)return<DemandaDetail demanda={d} canEdit={canManage(user)} onUpdate={u=>setDemandas(p=>p.map(x=>x.id===u.id?u:x))} onDelete={async()=>{await supabase.from("demandas").delete().eq("id",d.id);setDemandas(p=>p.filter(x=>x.id!==d.id));setScreen("app");setSelectedD(null);}} onBack={()=>{setScreen("app");setSelectedD(null);}}/>;
-  }
+  if(screen==="demanda"&&selectedD){const d=demandas.find(x=>x.id===selectedD);if(d)return<DemandaDetail demanda={d} canEdit={canManage(user)} onUpdate={u=>setDemandas(p=>p.map(x=>x.id===u.id?u:x))} onDelete={async()=>{await supabase.from("demandas").delete().eq("id",d.id);setDemandas(p=>p.filter(x=>x.id!==d.id));setScreen("app");setSelectedD(null);}} onBack={()=>{setScreen("app");setSelectedD(null);}}/>;} 
 
-  const myDemandas  = canSeeAll(user)?demandas:demandas.filter(d=>d.area===user.area);
-  const urgentes    = myDemandas.filter(d=>d.status==="urgente"||d.status==="pendente");
-  const nextEventos = eventos.filter(e=>(e.data||e.date)>=todayIso()).slice(0,3);
-  const totalAbertas   = myDemandas.filter(d=>d.status!=="concluido").length;
-  const totalConcluidas= myDemandas.filter(d=>d.status==="concluido").length;
-
+  const myDemandas=canSeeAll(user)?demandas:demandas.filter(d=>d.area===user.area);
+  const urgentes=myDemandas.filter(d=>d.status==="urgente"||d.status==="pendente");
+  const nextEventos=eventos.filter(e=>(e.data||e.date)>=todayIso()).slice(0,3);
+  const totalAbertas=myDemandas.filter(d=>d.status!=="concluido").length;
+  const totalConcluidas=myDemandas.filter(d=>d.status==="concluido").length;
   const TABS=[{id:"inicio",label:"Início",icon:Ic.home},{id:"demandas",label:"Demandas",icon:Ic.check},{id:"calendario",label:"Agenda",icon:Ic.cal},{id:"materiais",label:"Materiais",icon:Ic.folder}];
   const TAB_LABEL={inicio:"Painel",demandas:"Demandas",calendario:"Agenda",materiais:"Materiais"};
 
@@ -870,100 +400,84 @@ export default function BCApp() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box;} input::placeholder,textarea::placeholder{color:#9CA3AF;} input:focus,textarea:focus,select:focus{outline:none;border-color:${C.blue}!important;} button{font-family:inherit;} ::-webkit-scrollbar{display:none;} select{font-family:inherit;} @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}} @keyframes fadeIn{from{opacity:0}to{opacity:1}}`}</style>
       <input ref={uploadRef} type="file" style={{display:"none"}} onChange={handleUpload}/>
 
-      {/* ── DRAWER (menu lateral) ── */}
-      {drawer&&(
-        <>
-          {/* Backdrop */}
-          <div onClick={()=>{setDrawer(false);setMembersTab(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:100,animation:"fadeIn .2s"}}/>
-          {/* Panel */}
-          <div style={{position:"fixed",top:0,right:0,bottom:0,width:280,background:C.white,zIndex:101,display:"flex",flexDirection:"column",animation:"slideIn .22s ease",boxShadow:"-6px 0 32px rgba(0,0,0,.15)"}}>
-            {!membersTab?(
-              <>
-                {/* User info */}
-                <div style={{background:C.blue,padding:"36px 20px 24px"}}>
-                  <Avatar user={user} size={56}/>
-                  <div style={{color:C.white,fontWeight:700,fontSize:16,marginTop:12}}>{user.name}</div>
-                  <div style={{color:"rgba(255,255,255,.7)",fontSize:12,marginTop:4}}>{getRoleLabel(user.role)} · {user.area}</div>
-                </div>
-                {/* Options */}
-                <div style={{flex:1,overflowY:"auto"}}>
-                  <button onClick={()=>{setDrawer(false);setScreen("profile");}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 20px",background:"none",border:"none",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
-                    <div style={{width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{Ic.user()}</div>
-                    <div style={{flex:1,textAlign:"left"}}>
-                      <div style={{fontSize:14,fontWeight:600,color:C.text}}>Meu Perfil</div>
-                      <div style={{fontSize:12,color:C.sub,marginTop:2}}>Editar informações e foto</div>
-                    </div>
-                    {Ic.chevR()}
-                  </button>
-                  <button onClick={()=>{setMembersTab(true);if(!members.length)loadMembers();}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 20px",background:"none",border:"none",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
-                    <div style={{width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{Ic.people()}</div>
-                    <div style={{flex:1,textAlign:"left"}}>
-                      <div style={{fontSize:14,fontWeight:600,color:C.text}}>Membros</div>
-                      <div style={{fontSize:12,color:C.sub,marginTop:2}}>Ver todos os participantes</div>
-                    </div>
-                    {Ic.chevR()}
-                  </button>
-                </div>
-                <div style={{padding:"16px 20px 40px",borderTop:`1px solid ${C.border}`}}>
-                  <button onClick={logout} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#FEF2F2",border:"none",borderRadius:10,cursor:"pointer"}}>
-                    {Ic.logout(C.red)}
-                    <span style={{fontSize:14,fontWeight:600,color:C.red}}>Sair da conta</span>
-                  </button>
-                </div>
-              </>
-            ):(
-              /* Membros dentro do drawer */
-              <>
-                <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"16px 20px",display:"flex",alignItems:"center",gap:10}}>
-                  <button onClick={()=>setMembersTab(false)} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}>{Ic.back()}</button>
-                  <span style={{fontSize:15,fontWeight:700}}>Membros</span>
-                </div>
-                <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
-                  {!members.length&&<Spinner/>}
-                  {["presidente","vice","diretor","membro"].map(role=>{
-                    const group=members.filter(m=>m.role===role);
-                    if(!group.length)return null;
-                    const rl={presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
-                    return(
-                      <div key={role}>
-                        <div style={{padding:"12px 16px 6px"}}><span style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{rl[role]}</span></div>
-                        {group.map((m,i)=>(
-                          <div key={m.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:user.role==="presidente"&&m.id!==user.id?8:0}}>
-                              <Avatar user={m} size={36}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
-                                <div style={{fontSize:11,color:C.sub,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.area}</div>
-                              </div>
+      {/* DRAWER */}
+      {drawer&&(<>
+        <div onClick={()=>{setDrawer(false);setMembersTab(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:100,animation:"fadeIn .2s"}}/>
+        <div style={{position:"fixed",top:0,right:0,bottom:0,width:280,background:C.white,zIndex:101,display:"flex",flexDirection:"column",animation:"slideIn .22s ease",boxShadow:"-6px 0 32px rgba(0,0,0,.15)"}}>
+          {!membersTab?(
+            <>
+              <div style={{background:C.blue,padding:"36px 20px 24px"}}>
+                <Avatar user={user} size={56}/>
+                <div style={{color:C.white,fontWeight:700,fontSize:16,marginTop:12}}>{user.name}</div>
+                <div style={{color:"rgba(255,255,255,.7)",fontSize:12,marginTop:4}}>{getRoleLabel(user.role)} · {user.area}</div>
+              </div>
+              <div style={{flex:1,overflowY:"auto"}}>
+                <button onClick={()=>{setDrawer(false);setScreen("profile");}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 20px",background:"none",border:"none",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
+                  <div style={{width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{Ic.user()}</div>
+                  <div style={{flex:1,textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Meu Perfil</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>Editar informações e foto</div></div>
+                  {Ic.chevR()}
+                </button>
+                <button onClick={()=>{setMembersTab(true);if(!members.length)loadMembers();}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 20px",background:"none",border:"none",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}}>
+                  <div style={{width:38,height:38,borderRadius:10,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{Ic.people()}</div>
+                  <div style={{flex:1,textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Membros</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>Ver todos os participantes</div></div>
+                  {Ic.chevR()}
+                </button>
+              </div>
+              <div style={{padding:"16px 20px 40px",borderTop:`1px solid ${C.border}`}}>
+                <button onClick={logout} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#FEF2F2",border:"none",borderRadius:10,cursor:"pointer"}}>
+                  {Ic.logout(C.red)}<span style={{fontSize:14,fontWeight:600,color:C.red}}>Sair da conta</span>
+                </button>
+              </div>
+            </>
+          ):(
+            <>
+              <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"16px 20px",display:"flex",alignItems:"center",gap:10}}>
+                <button onClick={()=>setMembersTab(false)} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}>{Ic.back()}</button>
+                <span style={{fontSize:15,fontWeight:700}}>Membros</span>
+              </div>
+              <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
+                {!members.length&&<Spinner/>}
+                {["presidente","vice","diretor","membro"].map(role=>{
+                  const group=members.filter(m=>m.role===role);
+                  if(!group.length)return null;
+                  const rl={presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
+                  return(
+                    <div key={role}>
+                      <div style={{padding:"12px 16px 6px"}}><span style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{rl[role]}</span></div>
+                      {group.map(m=>(
+                        <div key={m.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:user.role==="presidente"&&m.id!==user.id?8:0}}>
+                            <Avatar user={m} size={36}/>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
+                              <div style={{fontSize:11,color:C.sub,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.area}</div>
                             </div>
-                            {user.role==="presidente"&&m.id!==user.id&&(
-                              <div style={{display:"flex",gap:6}}>
-                                <select defaultValue={m.role} onChange={e=>updateMemberRole(m.id,e.target.value,m.area)}
-                                  style={{flex:1,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  <option value="membro">Assessor(a)</option>
-                                  <option value="diretor">Diretor(a)</option>
-                                  <option value="vice">Vice-Presidente</option>
-                                  <option value="presidente">Presidente</option>
-                                </select>
-                                <select defaultValue={m.area} onChange={e=>updateMemberRole(m.id,m.role,e.target.value)}
-                                  style={{flex:2,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  {["Presidência",...AREAS].map(a=><option key={a}>{a}</option>)}
-                                </select>
-                              </div>
-                            )}
                           </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
+                          {user.role==="presidente"&&m.id!==user.id&&(
+                            <div style={{display:"flex",gap:6}}>
+                              <select defaultValue={m.role} onChange={e=>updateMemberRole(m.id,e.target.value,m.area)} style={{flex:1,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
+                                <option value="membro">Assessor(a)</option>
+                                <option value="diretor">Diretor(a)</option>
+                                <option value="vice">Vice-Presidente</option>
+                                <option value="presidente">Presidente</option>
+                              </select>
+                              <select defaultValue={m.area} onChange={e=>updateMemberRole(m.id,m.role,e.target.value)} style={{flex:2,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
+                                {["Presidência",...AREAS].map(a=><option key={a}>{a}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </>)}
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{position:"sticky",top:0,zIndex:40,background:C.white,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{fontSize:10,fontWeight:700,letterSpacing:2.5,color:C.blue,textTransform:"uppercase"}}>Business Consultoria · UEL</div>
@@ -974,9 +488,7 @@ export default function BCApp() {
         </button>
       </div>
 
-      {/* ── Body ── */}
       <div style={{paddingBottom:88}}>
-
         {/* INÍCIO */}
         {tab==="inicio"&&(<>
           <div style={{margin:"16px 20px 0",background:C.blue,borderRadius:16,padding:"22px 20px",color:C.white,position:"relative",overflow:"hidden"}}>
@@ -997,40 +509,9 @@ export default function BCApp() {
               <div style={{fontSize:12,color:C.sub,marginTop:4}}>demanda{totalConcluidas!==1?"s":""}</div>
             </div>
           </div>
-          {nextEventos.length>0&&(<>
-            <SLabel>Próximos eventos</SLabel>
-            {nextEventos.map((ev,i)=>(
-              <div key={ev.id}>
-                <div style={{padding:"12px 20px",display:"flex",gap:14,alignItems:"center"}}>
-                  <div style={{minWidth:46,height:46,borderRadius:12,background:C.blueSoft,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{fontSize:16,fontWeight:800,color:C.blue,lineHeight:1}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span>
-                    <span style={{fontSize:9,fontWeight:700,color:C.blue,opacity:.6,textTransform:"uppercase"}}>{MONTHS[new Date((ev.data||ev.date)+"T00:00:00").getMonth()].slice(0,3)}</span>
-                  </div>
-                  <div><div style={{fontSize:14,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div>
-                </div>
-                {i<nextEventos.length-1&&<Divider/>}
-              </div>
-            ))}
-          </>)}
-          {urgentes.length>0&&(<>
-            <SLabel>Demandas prioritárias</SLabel>
-            {urgentes.slice(0,3).map((d,i)=>(
-              <div key={d.id}>
-                <div onClick={()=>{setSelectedD(d.id);setScreen("demanda");}} style={{padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,cursor:"pointer"}}>
-                  <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{d.resp||"—"} · Prazo {fmtDate(d.prazo)}</div></div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}><Pill status={d.status}/>{Ic.chevR()}</div>
-                </div>
-                {i<urgentes.slice(0,3).length-1&&<Divider/>}
-              </div>
-            ))}
-          </>)}
-          {urgentes.length===0&&nextEventos.length===0&&(
-            <div style={{margin:"32px 20px",background:C.white,border:`1px solid ${C.border}`,borderRadius:16,padding:"32px 20px",textAlign:"center"}}>
-              <div style={{fontSize:32,marginBottom:12}}>✦</div>
-              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>Tudo em dia!</div>
-              <div style={{fontSize:13,color:C.sub}}>Nenhuma demanda pendente ou evento próximo.</div>
-            </div>
-          )}
+          {nextEventos.length>0&&(<><SLabel>Próximos eventos</SLabel>{nextEventos.map((ev,i)=>(<div key={ev.id}><div style={{padding:"12px 20px",display:"flex",gap:14,alignItems:"center"}}><div style={{minWidth:46,height:46,borderRadius:12,background:C.blueSoft,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:16,fontWeight:800,color:C.blue,lineHeight:1}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span><span style={{fontSize:9,fontWeight:700,color:C.blue,opacity:.6,textTransform:"uppercase"}}>{MONTHS[new Date((ev.data||ev.date)+"T00:00:00").getMonth()].slice(0,3)}</span></div><div><div style={{fontSize:14,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div></div>{i<nextEventos.length-1&&<Divider/>}</div>))}</>)}
+          {urgentes.length>0&&(<><SLabel>Demandas prioritárias</SLabel>{urgentes.slice(0,3).map((d,i)=>(<div key={d.id}><div onClick={()=>{setSelectedD(d.id);setScreen("demanda");}} style={{padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,cursor:"pointer"}}><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div><div style={{fontSize:12,color:C.sub,marginTop:2}}>{d.resp||"—"} · Prazo {fmtDate(d.prazo)}</div></div><div style={{display:"flex",alignItems:"center",gap:8}}><Pill status={d.status}/>{Ic.chevR()}</div></div>{i<urgentes.slice(0,3).length-1&&<Divider/>}</div>))}</>)}
+          {urgentes.length===0&&nextEventos.length===0&&(<div style={{margin:"32px 20px",background:C.white,border:`1px solid ${C.border}`,borderRadius:16,padding:"32px 20px",textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>✦</div><div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>Tudo em dia!</div><div style={{fontSize:13,color:C.sub}}>Nenhuma demanda pendente ou evento próximo.</div></div>)}
         </>)}
 
         {/* DEMANDAS */}
@@ -1039,46 +520,12 @@ export default function BCApp() {
             {canSeeAll(user)?<div style={{fontSize:12,color:C.blue,fontWeight:600,background:C.blueSoft,borderRadius:99,padding:"5px 14px"}}>Todas as áreas</div>:<div style={{fontSize:12,color:C.sub,background:C.white,border:`1px solid ${C.border}`,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5}}>{Ic.lock()} {user.area}</div>}
             {canManage(user)&&<button onClick={()=>setDForm(v=>!v)} style={{width:32,height:32,borderRadius:9,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}
           </div>
-          {dForm&&canManage(user)&&(
-            <div style={{margin:"12px 20px 0",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
-              <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Nova demanda</div>
-              <Inp label="Título" value={dNovo.titulo} onChange={e=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
-              <Inp label="Responsável" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}/>
-              <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={e=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
-              <Sel label="Prioridade" value={dNovo.prioridade} onChange={e=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
-              <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={e=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
-              <Txt label="Observações" value={dNovo.obs} rows={2} onChange={e=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
-              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
-              <div style={{display:"flex",gap:8}}><Btn onClick={addDemanda} style={{flex:1}}>Criar</Btn><Btn variant="secondary" onClick={()=>setDForm(false)} style={{flex:1}}>Cancelar</Btn></div>
-            </div>
-          )}
+          {dForm&&canManage(user)&&(<div style={{margin:"12px 20px 0",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}><div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Nova demanda</div><Inp label="Título" value={dNovo.titulo} onChange={e=>setDNovo(v=>({...v,titulo:e.target.value}))}/><Inp label="Responsável" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}/><Inp label="Prazo" type="date" value={dNovo.prazo} onChange={e=>setDNovo(v=>({...v,prazo:e.target.value}))}/><Sel label="Prioridade" value={dNovo.prioridade} onChange={e=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel><Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={e=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/><Txt label="Observações" value={dNovo.obs} rows={2} onChange={e=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>{canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}<div style={{display:"flex",gap:8}}><Btn onClick={addDemanda} style={{flex:1}}>Criar</Btn><Btn variant="secondary" onClick={()=>setDForm(false)} style={{flex:1}}>Cancelar</Btn></div></div>)}
           <div style={{height:8}}/>
           {myDemandas.length===0&&<div style={{padding:"32px 20px",textAlign:"center",color:C.muted,fontSize:14}}>Nenhuma demanda ainda.</div>}
-          {myDemandas.map((d,i)=>(
-            <div key={d.id}>
-              <div onClick={()=>{setSelectedD(d.id);setScreen("demanda");}} style={{padding:"13px 20px",cursor:"pointer"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div>
-                    {d.descricao&&<div style={{fontSize:12,color:C.sub,marginTop:2,lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{d.descricao}</div>}
-                    <div style={{display:"flex",gap:10,marginTop:5,flexWrap:"wrap"}}>
-                      <span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.person()}{d.resp||"—"}</span>
-                      <span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.cal2()}{fmtDate(d.prazo)}</span>
-                      {canSeeAll(user)&&<span style={{fontSize:11,color:C.blue,fontWeight:500}}>{d.area}</span>}
-                    </div>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-                    <Pill status={d.status}/>
-                    <span style={{fontSize:11,color:PRIORIDADE[d.prioridade]?.color||C.muted,fontWeight:600}}>{PRIORIDADE[d.prioridade]?.label}</span>
-                  </div>
-                </div>
-              </div>
-              {i<myDemandas.length-1&&<Divider/>}
-            </div>
-          ))}
+          {myDemandas.map((d,i)=>(<div key={d.id}><div onClick={()=>{setSelectedD(d.id);setScreen("demanda");}} style={{padding:"13px 20px",cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{d.titulo}</div>{d.descricao&&<div style={{fontSize:12,color:C.sub,marginTop:2,lineHeight:1.4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{d.descricao}</div>}<div style={{display:"flex",gap:10,marginTop:5,flexWrap:"wrap"}}><span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.person()}{d.resp||"—"}</span><span style={{fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:3}}>{Ic.cal2()}{fmtDate(d.prazo)}</span>{canSeeAll(user)&&<span style={{fontSize:11,color:C.blue,fontWeight:500}}>{d.area}</span>}</div></div><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><Pill status={d.status}/><span style={{fontSize:11,color:PRIORIDADE[d.prioridade]?.color||C.muted,fontWeight:600}}>{PRIORIDADE[d.prioridade]?.label}</span></div></div></div>{i<myDemandas.length-1&&<Divider/>}</div>))}
         </>)}
 
-        {/* CALENDÁRIO */}
         {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={ev=>setEventos(p=>[...p,ev])}/>}
 
         {/* MATERIAIS */}
@@ -1087,45 +534,24 @@ export default function BCApp() {
           {AREAS.map((area,ai)=>{
             const isOpen=openFolder===area,files=materiais[area]||[];
             const canUp=canManage(user)&&(canSeeAll(user)||user.area===area||area==="Geral");
-            return(
-              <div key={area}>
-                <button onClick={()=>setFolder(isOpen?null:area)} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
-                  <div style={{width:40,height:40,borderRadius:10,background:isOpen?C.blue:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s"}}>{Ic.folder(isOpen?C.white:C.blue)}</div>
-                  <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>{area}</div><div style={{fontSize:12,color:C.sub,marginTop:1}}>{files.length} arquivo{files.length!==1?"s":""}</div></div>
-                  {Ic.chevD(isOpen)}
-                </button>
-                {isOpen&&(
-                  <div style={{margin:"0 20px 6px"}}>
-                    {canUp&&<button onClick={()=>{setUploadArea(area);setTimeout(()=>uploadRef.current.click(),50);}} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:10,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13}}>{Ic.upload(C.blue)} Fazer upload</button>}
-                    {files.length>0&&(
-                      <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                        {files.map((f,fi)=>(
-                          <div key={f.id}>
-                            <div style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:12}}>
-                              <div style={{minWidth:36,height:36,borderRadius:8,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:800,color:C.blue,letterSpacing:.5}}>{f.tipo}</span></div>
-                              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{f.nome}</div><div style={{fontSize:11,color:C.muted,marginTop:1}}>{f.tamanho}</div></div>
-                              <div style={{display:"flex",gap:6}}>
-                                <a href={f.url} target="_blank" rel="noreferrer" style={{width:30,height:30,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",textDecoration:"none"}}>{Ic.down()}</a>
-                                {canUp&&<button onClick={async()=>{await supabase.from("materiais").delete().eq("id",f.id);loadMateriais();}} style={{width:30,height:30,borderRadius:7,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>}
-                              </div>
-                            </div>
-                            {fi<files.length-1&&<Divider m={14}/>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {files.length===0&&!canUp&&<div style={{textAlign:"center",padding:"16px",color:C.muted,fontSize:13}}>Nenhum arquivo nesta pasta.</div>}
-                  </div>
-                )}
-                {ai<AREAS.length-1&&!isOpen&&<Divider/>}
-              </div>
-            );
+            return(<div key={area}>
+              <button onClick={()=>setFolder(isOpen?null:area)} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 20px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                <div style={{width:40,height:40,borderRadius:10,background:isOpen?C.blue:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s"}}>{Ic.folder(isOpen?C.white:C.blue)}</div>
+                <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>{area}</div><div style={{fontSize:12,color:C.sub,marginTop:1}}>{files.length} arquivo{files.length!==1?"s":""}</div></div>
+                {Ic.chevD(isOpen)}
+              </button>
+              {isOpen&&(<div style={{margin:"0 20px 6px"}}>
+                {canUp&&<button onClick={()=>{setUploadArea(area);setTimeout(()=>uploadRef.current.click(),50);}} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:10,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13}}>{Ic.upload(C.blue)} Fazer upload</button>}
+                {files.length>0&&(<div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>{files.map((f,fi)=>(<div key={f.id}><div style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:12}}><div style={{minWidth:36,height:36,borderRadius:8,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:800,color:C.blue,letterSpacing:.5}}>{f.tipo}</span></div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{f.nome}</div><div style={{fontSize:11,color:C.muted,marginTop:1}}>{f.tamanho}</div></div><div style={{display:"flex",gap:6}}><a href={f.url} target="_blank" rel="noreferrer" style={{width:30,height:30,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",textDecoration:"none"}}>{Ic.down()}</a>{canUp&&<button onClick={async()=>{await supabase.from("materiais").delete().eq("id",f.id);loadMateriais();}} style={{width:30,height:30,borderRadius:7,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>}</div></div>{fi<files.length-1&&<Divider m={14}/>}</div>))}</div>)}
+                {files.length===0&&!canUp&&<div style={{textAlign:"center",padding:"16px",color:C.muted,fontSize:13}}>Nenhum arquivo nesta pasta.</div>}
+              </div>)}
+              {ai<AREAS.length-1&&!isOpen&&<Divider/>}
+            </div>);
           })}
           <div style={{padding:"16px 20px",textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>Drive continua como backup automático</span></div>
         </>)}
       </div>
 
-      {/* Bottom Nav */}
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,zIndex:50,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-around",padding:"8px 0 18px"}}>
         {TABS.map(t=><NavTab key={t.id} active={tab===t.id} icon={t.icon} label={t.label} onClick={()=>setTab(t.id)}/>)}
       </div>
