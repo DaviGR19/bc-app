@@ -81,164 +81,180 @@ const BLUE = "#1A56DB";
 
 // ── CropBox para avatar (quadrado com alças, estilo WhatsApp) ─
 function AvatarCropper({ src, onCrop, onCancel }) {
-  const containerRef = useRef();
-  const imgRef = useRef();
+  const frameRef = useRef(null);
+  const imageRef = useRef(null);
+  const dragRef = useRef(null);
   const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
   const [imgDisplayed, setImgDisplayed] = useState({ x: 0, y: 0, w: 300, h: 300 });
   const [crop, setCrop] = useState({ x: 50, y: 50, size: 200 });
   const [ready, setReady] = useState(false);
-
-  // drag state
-  const dragRef = useRef(null); // { type: "move"|corner, startX, startY, startCrop }
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setReady(false);
+    setError("");
     const img = new window.Image();
     img.onload = () => {
-      setImgNaturalSize({ w: img.width, h: img.height });
-      // fit inside 320x400 container
-      const maxW = 320, maxH = 400;
+      const maxW = 320;
+      const maxH = 400;
       const ratio = Math.min(maxW / img.width, maxH / img.height);
-      const dw = Math.round(img.width * ratio);
-      const dh = Math.round(img.height * ratio);
-      const dx = Math.round((maxW - dw) / 2);
-      const dy = Math.round((maxH - dh) / 2);
-      setImgDisplayed({ x: dx, y: dy, w: dw, h: dh });
-      // initial crop: centered square, 70% of smallest dimension
-      const size = Math.round(Math.min(dw, dh) * 0.7);
-      const cx = dx + Math.round((dw - size) / 2);
-      const cy = dy + Math.round((dh - size) / 2);
-      setCrop({ x: cx, y: cy, size });
+      const displayed = {
+        x: Math.round((maxW - img.width * ratio) / 2),
+        y: Math.round((maxH - img.height * ratio) / 2),
+        w: Math.round(img.width * ratio),
+        h: Math.round(img.height * ratio),
+      };
+      const size = Math.round(Math.min(displayed.w, displayed.h) * 0.72);
+
+      setImgNaturalSize({ w: img.width, h: img.height });
+      setImgDisplayed(displayed);
+      setCrop({
+        x: displayed.x + Math.round((displayed.w - size) / 2),
+        y: displayed.y + Math.round((displayed.h - size) / 2),
+        size,
+      });
       setReady(true);
     };
+    img.onerror = () => setError("Não foi possível carregar essa imagem. Tente uma foto em JPG ou PNG.");
     img.src = src;
   }, [src]);
 
-  function clampCrop(x, y, size, img) {
-    const im = img || imgDisplayed;
-    const minSize = 40;
-    const maxSize = Math.min(im.w, im.h);
-    const s = Math.max(minSize, Math.min(maxSize, size));
-    const cx = Math.max(im.x, Math.min(im.x + im.w - s, x));
-    const cy = Math.max(im.y, Math.min(im.y + im.h - s, y));
-    return { x: cx, y: cy, size: s };
+  function clampCrop(next, base = imgDisplayed) {
+    const maxSize = Math.max(60, Math.min(base.w, base.h));
+    const size = Math.max(60, Math.min(maxSize, next.size));
+    return {
+      x: Math.max(base.x, Math.min(base.x + base.w - size, next.x)),
+      y: Math.max(base.y, Math.min(base.y + base.h - size, next.y)),
+      size,
+    };
   }
 
-  function getEventPos(e) {
-    const rect = containerRef.current.getBoundingClientRect();
-    const src = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  function getPos(e) {
+    const rect = frameRef.current.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
-  function onPointerDown(e, type) {
+  function startDrag(e, type) {
     e.preventDefault();
     e.stopPropagation();
-    const pos = getEventPos(e);
+    if (!ready) return;
+    const pos = getPos(e);
     dragRef.current = { type, startX: pos.x, startY: pos.y, startCrop: { ...crop } };
   }
 
-  function onPointerMove(e) {
+  function onMove(e) {
     if (!dragRef.current) return;
     e.preventDefault();
-    const pos = getEventPos(e);
+    const pos = getPos(e);
     const dx = pos.x - dragRef.current.startX;
     const dy = pos.y - dragRef.current.startY;
-    const sc = dragRef.current.startCrop;
-    let nx = sc.x, ny = sc.y, ns = sc.size;
+    const start = dragRef.current.startCrop;
+    let next = { ...start };
 
     if (dragRef.current.type === "move") {
-      nx = sc.x + dx; ny = sc.y + dy;
-    } else if (dragRef.current.type === "br") {
-      ns = sc.size + Math.max(dx, dy);
-    } else if (dragRef.current.type === "bl") {
-      ns = sc.size - Math.min(dx, -dy); nx = sc.x + sc.size - ns;
-    } else if (dragRef.current.type === "tr") {
-      ns = sc.size + Math.max(dx, -dy); ny = sc.y + sc.size - ns;
-    } else if (dragRef.current.type === "tl") {
-      const d = -Math.max(dx, dy); ns = sc.size + d; nx = sc.x - d; ny = sc.y - d;
+      next.x = start.x + dx;
+      next.y = start.y + dy;
     }
-    setCrop(clampCrop(nx, ny, ns));
+    if (dragRef.current.type === "br") next.size = start.size + Math.max(dx, dy);
+    if (dragRef.current.type === "tr") {
+      next.size = start.size + Math.max(dx, -dy);
+      next.y = start.y + start.size - next.size;
+    }
+    if (dragRef.current.type === "bl") {
+      next.size = start.size + Math.max(-dx, dy);
+      next.x = start.x + start.size - next.size;
+    }
+    if (dragRef.current.type === "tl") {
+      next.size = start.size + Math.max(-dx, -dy);
+      next.x = start.x + start.size - next.size;
+      next.y = start.y + start.size - next.size;
+    }
+
+    setCrop(clampCrop(next));
   }
 
-  function onPointerUp() { dragRef.current = null; }
+  function stopDrag() {
+    dragRef.current = null;
+  }
 
   function handleCrop() {
+    if (!ready || !imageRef.current) return;
+
     const out = document.createElement("canvas");
-    out.width = 400; out.height = 400;
+    out.width = 400;
+    out.height = 400;
     const ctx = out.getContext("2d");
-    // map crop box coords back to natural image coords
     const scaleX = imgNaturalSize.w / imgDisplayed.w;
     const scaleY = imgNaturalSize.h / imgDisplayed.h;
-    const sx = (crop.x - imgDisplayed.x) * scaleX;
-    const sy = (crop.y - imgDisplayed.y) * scaleY;
+    const sx = Math.max(0, (crop.x - imgDisplayed.x) * scaleX);
+    const sy = Math.max(0, (crop.y - imgDisplayed.y) * scaleY);
     const sw = crop.size * scaleX;
     const sh = crop.size * scaleY;
-    // clip to circle
-    ctx.beginPath();
-    ctx.arc(200, 200, 200, 0, Math.PI * 2);
-    ctx.clip();
-    const img = new window.Image();
-    img.onload = () => {
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 400, 400);
-      out.toBlob(b => onCrop(b), "image/jpeg", 0.92);
-    };
-    img.src = src;
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, 400, 400);
+    ctx.drawImage(imageRef.current, sx, sy, sw, sh, 0, 0, 400, 400);
+    out.toBlob(blob => {
+      if (!blob) {
+        setError("Não foi possível cortar essa imagem. Tente outra foto.");
+        return;
+      }
+      onCrop(blob);
+    }, "image/jpeg", 0.92);
   }
 
-  const HANDLE = 14;
-  const corners = [
-    { type: "tl", cx: crop.x,             cy: crop.y },
-    { type: "tr", cx: crop.x + crop.size,  cy: crop.y },
-    { type: "bl", cx: crop.x,             cy: crop.y + crop.size },
-    { type: "br", cx: crop.x + crop.size,  cy: crop.y + crop.size },
+  const handles = [
+    ["tl", crop.x, crop.y, "nwse-resize"],
+    ["tr", crop.x + crop.size, crop.y, "nesw-resize"],
+    ["bl", crop.x, crop.y + crop.size, "nesw-resize"],
+    ["br", crop.x + crop.size, crop.y + crop.size, "nwse-resize"],
   ];
 
   return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16 }}>
-      <div style={{ background:"#1a1a1a",borderRadius:20,padding:20,width:"100%",maxWidth:360 }}>
-        <div style={{ color:"white",fontSize:15,fontWeight:700,marginBottom:4 }}>Ajustar foto de perfil</div>
-        <div style={{ color:"#aaa",fontSize:12,marginBottom:14 }}>Arraste o quadrado ou as alças para enquadrar</div>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
+      <div style={{background:"#111",borderRadius:18,padding:16,width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
+        <div style={{color:C.white,fontSize:15,fontWeight:800,marginBottom:4}}>Ajustar foto de perfil</div>
+        <div style={{color:"rgba(255,255,255,.65)",fontSize:12,marginBottom:12}}>Arraste o quadrado ou use as alças para enquadrar.</div>
 
-        {/* Canvas area */}
-        <div ref={containerRef} style={{ position:"relative",width:320,height:400,margin:"0 auto",overflow:"hidden",borderRadius:10,background:"#000",touchAction:"none",cursor:"crosshair" }}
-          onMouseMove={onPointerMove} onMouseUp={onPointerUp} onMouseLeave={onPointerUp}
-          onTouchMove={onPointerMove} onTouchEnd={onPointerUp}>
-
-          {/* Image */}
-          {ready && (
-            <img src={src} draggable={false} style={{ position:"absolute", left:imgDisplayed.x, top:imgDisplayed.y, width:imgDisplayed.w, height:imgDisplayed.h, userSelect:"none", pointerEvents:"none" }}/>
+        <div
+          ref={frameRef}
+          onPointerMove={onMove}
+          onPointerUp={stopDrag}
+          onPointerLeave={stopDrag}
+          style={{position:"relative",width:320,maxWidth:"100%",height:400,margin:"0 auto",overflow:"hidden",borderRadius:12,background:"#050505",touchAction:"none"}}
+        >
+          {ready&&(
+            <img
+              ref={imageRef}
+              src={src}
+              alt=""
+              draggable={false}
+              style={{position:"absolute",left:imgDisplayed.x,top:imgDisplayed.y,width:imgDisplayed.w,height:imgDisplayed.h,userSelect:"none",pointerEvents:"none"}}
+            />
           )}
 
-          {/* Dark overlay outside crop */}
-          {ready && (<>
-            <div style={{ position:"absolute",top:0,left:0,right:0,height:crop.y,background:"rgba(0,0,0,0.6)" }}/>
-            <div style={{ position:"absolute",top:crop.y+crop.size,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)" }}/>
-            <div style={{ position:"absolute",top:crop.y,left:0,width:crop.x,height:crop.size,background:"rgba(0,0,0,0.6)" }}/>
-            <div style={{ position:"absolute",top:crop.y,left:crop.x+crop.size,right:0,height:crop.size,background:"rgba(0,0,0,0.6)" }}/>
+          {!ready&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,.7)",fontSize:13}}>Carregando imagem...</div>}
+          {error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:22,color:C.white,fontSize:13,lineHeight:1.4}}>{error}</div>}
 
-            {/* Crop border */}
-            <div style={{ position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,border:`2px solid ${BLUE}`,boxSizing:"border-box",cursor:"move" }}
-              onMouseDown={e=>onPointerDown(e,"move")} onTouchStart={e=>onPointerDown(e,"move")}/>
-
-            {/* Grid lines */}
-            <div style={{ position:"absolute",left:crop.x,top:crop.y+Math.round(crop.size/3),width:crop.size,height:1,background:"rgba(255,255,255,0.3)",pointerEvents:"none" }}/>
-            <div style={{ position:"absolute",left:crop.x,top:crop.y+Math.round(crop.size*2/3),width:crop.size,height:1,background:"rgba(255,255,255,0.3)",pointerEvents:"none" }}/>
-            <div style={{ position:"absolute",left:crop.x+Math.round(crop.size/3),top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,0.3)",pointerEvents:"none" }}/>
-            <div style={{ position:"absolute",left:crop.x+Math.round(crop.size*2/3),top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,0.3)",pointerEvents:"none" }}/>
-
-            {/* Corner handles */}
-            {corners.map(({ type, cx, cy }) => (
-              <div key={type} onMouseDown={e=>onPointerDown(e,type)} onTouchStart={e=>onPointerDown(e,type)}
-                style={{ position:"absolute", left:cx-HANDLE/2, top:cy-HANDLE/2, width:HANDLE, height:HANDLE, background:BLUE, borderRadius:3, cursor:"nwse-resize", zIndex:2 }}/>
+          {ready&&(<>
+            <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.54)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,boxShadow:"0 0 0 999px rgba(0,0,0,.55)",border:`2px solid ${C.white}`,boxSizing:"border-box",cursor:"move"}}
+              onPointerDown={e=>startDrag(e,"move")}
+            />
+            <div style={{position:"absolute",left:crop.x,top:crop.y+crop.size/3,width:crop.size,height:1,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",left:crop.x,top:crop.y+crop.size*2/3,width:crop.size,height:1,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",left:crop.x+crop.size/3,top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",left:crop.x+crop.size*2/3,top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.65)",boxSizing:"border-box",pointerEvents:"none"}}/>
+            {handles.map(([type, x, y, cursor])=>(
+              <div key={type} onPointerDown={e=>startDrag(e,type)} style={{position:"absolute",left:x-11,top:y-11,width:22,height:22,borderRadius:6,background:C.white,border:`3px solid ${BLUE}`,boxSizing:"border-box",cursor,zIndex:2}}/>
             ))}
-
-            {/* Circle preview hint */}
-            <div style={{ position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,borderRadius:"50%",border:`2px dashed rgba(255,255,255,0.4)`,pointerEvents:"none",boxSizing:"border-box" }}/>
           </>)}
         </div>
 
-        <div style={{ display:"flex",gap:10,marginTop:16 }}>
-          <button onClick={onCancel} style={{ flex:1,padding:12,borderRadius:10,border:"1px solid #444",background:"transparent",color:"white",fontWeight:700,cursor:"pointer",fontSize:14 }}>Cancelar</button>
-          <button onClick={handleCrop} style={{ flex:1,padding:12,borderRadius:10,border:"none",background:BLUE,color:"white",fontWeight:700,cursor:"pointer",fontSize:14 }}>Confirmar</button>
+        <div style={{display:"flex",gap:10,marginTop:14}}>
+          <button onClick={onCancel} style={{flex:1,padding:12,borderRadius:10,border:"1px solid #444",background:"transparent",color:C.white,fontWeight:800,cursor:"pointer",fontSize:14}}>Cancelar</button>
+          <button onClick={handleCrop} disabled={!ready} style={{flex:1,padding:12,borderRadius:10,border:"none",background:BLUE,color:C.white,fontWeight:800,cursor:ready?"pointer":"not-allowed",fontSize:14,opacity:ready?1:.55}}>Confirmar</button>
         </div>
       </div>
     </div>
