@@ -76,7 +76,6 @@ const Ic={
 };
 
 // ── Image Cropper ─────────────────────────────────────────────
-import { useState, useEffect, useRef } from "react";
 
 const BLUE = "#1A56DB";
 
