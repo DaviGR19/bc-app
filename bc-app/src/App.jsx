@@ -557,28 +557,39 @@ function NavTab({active,icon,label,onClick}){
 
 // ── Swipeable Tabs ────────────────────────────────────────────
 function SwipeableTabs({ tabIndex, onChange, children }) {
-  const containerRef = useRef();
   const startX = useRef(null);
-  const startY = useRef(null);
-  const count = children.length;
 
-  function onTouchStart(e){
+  const handleTouchStart = (e) => {
     startX.current = e.touches[0].clientX;
-    startY.current = e.touches[0].clientY;
-  }
-  function onTouchEnd(e){
-    if(startX.current===null)return;
-    const dx = e.changedTouches[0].clientX - startX.current;
-    const dy = e.changedTouches[0].clientY - startY.current;
-    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50){
-      if(dx < 0 && tabIndex < count-1) onChange(tabIndex+1);
-      if(dx > 0 && tabIndex > 0) onChange(tabIndex-1);
-    }
-    startX.current = null; startY.current = null;
-  }
+  };
 
-  return(
-    <div ref={containerRef} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{flex:1,overflow:"hidden"}}>
+  const handleTouchEnd = (e) => {
+    if (startX.current === null) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const diff = startX.current - endX;
+
+    if (diff > 50 && tabIndex < children.length - 1) {
+      onChange(tabIndex + 1);
+    }
+
+    if (diff < -50 && tabIndex > 0) {
+      onChange(tabIndex - 1);
+    }
+
+    startX.current = null;
+  };
+
+  return (
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        flex: 1,
+        overflow: "hidden",
+        touchAction: "pan-y",
+      }}
+    >
       {children[tabIndex]}
     </div>
   );
