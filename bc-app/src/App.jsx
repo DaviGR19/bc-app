@@ -425,10 +425,24 @@ function AuthScreen({ onLogin }) {
     if(pw!==pw2){setError("As senhas não coincidem.");return;}
     if(pw.length<6){setError("Mínimo 6 caracteres na senha.");return;}
     setError("");setLoading(true);
-    const {data,error:err}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password:pw});
-    if(err){setError(err.message);setLoading(false);return;}
-    const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
-    await supabase.from("profiles").insert({id:data.user.id,name:name.trim(),initials,area:"Gestão de Pessoas",role:"membro",bio:"",avatar:""});
+   const { error: profileError } = await supabase
+  .from("profiles")
+  .insert({
+    id: data.user.id,
+    name: name.trim(),
+    initials,
+    area: "Gestão de Pessoas",
+    role: "membro",
+    bio: "",
+    avatar: ""
+  });
+
+if (profileError) {
+  console.error("Erro ao criar perfil:", profileError);
+  setError(profileError.message);
+  setLoading(false);
+  return;
+}
     setLoading(false);setSuccess("Conta criada! Você já pode entrar.");setMode("login");
   }
 
