@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabase";
 
 const C = {
@@ -29,376 +29,424 @@ function getSaudacao() { const h=new Date().getHours(); return h>=5&&h<12?"Bom d
 function getDataAtual() { const n=new Date(); return `${WEEKDAYS[n.getDay()]}, ${n.getDate()} de ${MONTHS[n.getMonth()]} de ${n.getFullYear()}`; }
 function todayIso() { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`; }
 function fmtDate(iso) { if(!iso)return"—"; const d=new Date(iso+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; }
-function daysInMonth(y, m) { return new Date(y,m+1,0).getDate(); }
-function firstDay(y, m) { return new Date(y,m,1).getDay(); }
+function daysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
+function firstDay(y,m) { return new Date(y,m,1).getDay(); }
 function canSeeAll(u) { return u?.role==="presidente"||u?.role==="vice"; }
 function canManage(u) { return u?.role==="presidente"||u?.role==="vice"||u?.role==="diretor"; }
-function getRoleLabel(r) { return ({presidente:"Presidente",vice:"Vice-Presidente",diretor:"Diretor(a)",membro:"Assessor(a)"})[r]||r; }
+function getRoleLabel(r) { return {presidente:"Presidente",vice:"Vice-Presidente",diretor:"Diretor(a)",membro:"Assessor(a)"}[r]||r; }
 
 // ── atoms ─────────────────────────────────────────────────────
 function Pill({status}){const s=STATUS[status]||STATUS.pendente;return<span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99,color:s.color,background:s.bg,whiteSpace:"nowrap"}}>{s.label}</span>;}
 function Divider({m=20}){return<div style={{height:1,background:C.border,margin:`0 ${m}px`}}/>;}
-function SLabel({children,action=null}){return<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 10px"}}><span style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{children}</span>{action}</div>;}
+function SLabel({children,action}){return<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 10px"}}><span style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{children}</span>{action}</div>;}
 function FL({children}){return<label style={{fontSize:11,fontWeight:700,color:C.sub,letterSpacing:.5,display:"block",marginBottom:5,textTransform:"uppercase"}}>{children}</label>;}
 function Inp({label,...p}){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<input {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",boxSizing:"border-box",...(p.style||{})}}/></div>;}
 function Sel({label,children,...p}){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<select {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit"}}>{children}</select></div>;}
 function Txt({label,...p}){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<textarea {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",...(p.style||{})}}/></div>;}
-function Btn({children,variant="primary",full=false,small=false,onClick=null,disabled=false,style={}}){const base={padding:small?"7px 14px":"12px 16px",borderRadius:10,border:"none",cursor:disabled?"not-allowed":"pointer",fontSize:small?13:14,fontWeight:700,fontFamily:"inherit",opacity:disabled ? 0.6 : 1,...style};const v={primary:{background:C.blue,color:C.white},secondary:{background:C.bg,color:C.sub,border:`1px solid ${C.border}`},danger:{background:"#FEF2F2",color:C.red,border:"1px solid #FECACA"}};return<button onClick={onClick} disabled={disabled} style={{...base,...v[variant],width:full?"100%":"auto"}}>{children}</button>;}
+function Btn({children,variant="primary",full,small,onClick,disabled,style={}}){const base={padding:small?"7px 14px":"12px 16px",borderRadius:10,border:"none",cursor:disabled?"not-allowed":"pointer",fontSize:small?13:14,fontWeight:700,fontFamily:"inherit",opacity:disabled?.6:1,...style};const v={primary:{background:C.blue,color:C.white},secondary:{background:C.bg,color:C.sub,border:`1px solid ${C.border}`},danger:{background:"#FEF2F2",color:C.red,border:"1px solid #FECACA"}};return<button onClick={onClick} disabled={disabled} style={{...base,...v[variant],width:full?"100%":"auto"}}>{children}</button>;}
 function Avatar({user,size=38}){if(user?.avatar)return<img src={user.avatar} alt="" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0}}/>;return<div style={{width:size,height:size,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.34,fontWeight:700,color:C.white,flexShrink:0}}>{user?.initials||"?"}</div>;}
 function Spinner(){return<div style={{display:"flex",justifyContent:"center",padding:"40px 0"}}><div style={{width:28,height:28,border:`3px solid ${C.border}`,borderTopColor:C.blue,borderRadius:"50%",animation:"spin .8s linear infinite"}}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;}
 
 // ── icons ──────────────────────────────────────────────────────
 const Ic={
-  home:  (c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
-  check: (c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  cal:   (c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-  folder:(c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
-  upload:(c=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-  down:  (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  chevD: (o=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:o?"rotate(180deg)":"none",transition:"transform .2s"}}><polyline points="6 9 12 15 18 9"/></svg>,
-  chevR: (c=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
-  plus:  (c=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-  trash: (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>,
-  edit:  (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  home:  c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
+  check: c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
+  cal:   c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  folder:c=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+  upload:c=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+  down:  c=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  chevD: o=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:o?"rotate(180deg)":"none",transition:"transform .2s"}}><polyline points="6 9 12 15 18 9"/></svg>,
+  chevR: c=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  plus:  c=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  trash: c=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>,
+  edit:  c=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   lock:  ()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  eye:   ()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  eyeOff:()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
-  logout:(c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  camera:(c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
-  clip:  (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
+  eye:   ()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  eyeOff:()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
+  logout:c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  camera:c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+  clip:  c=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
   back:  ()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
-  cal2:  (c=null)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-  person:(c=null)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  people:(c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
-  flag:  (c=null)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
-  image: (c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-  user:  (c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  cal2:  c=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  person:c=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  people:c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+  flag:  c=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
+  image: c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  user:  c=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
 };
 
 // ── Image Cropper ─────────────────────────────────────────────
+function ImageCropper({ src, aspect, onCrop, onCancel }) {
+  const isSquare = aspect === "square";
 
-const BLUE = "#1A56DB";
+  const W = isSquare ? 260 : 320;
+  const H = isSquare ? 260 : 180;
 
-// ── CropBox para avatar (quadrado com alças, estilo WhatsApp) ─
-function AvatarCropper({ src, onCrop, onCancel }) {
-  const frameRef = useRef(null);
-  const imageRef = useRef(null);
+  const imgRef = useRef(null);
+
+  const [imgSize, setImgSize] = useState({
+    width: 1,
+    height: 1
+  });
+
+  const [scale, setScale] = useState(1);
+  const [minScale, setMinScale] = useState(1);
+
+  const maxScale = 5;
+
+  const [offset, setOffset] = useState({
+    x: 0,
+    y: 0
+  });
+
   const dragRef = useRef(null);
-  const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
-  const [imgDisplayed, setImgDisplayed] = useState({ x: 0, y: 0, w: 300, h: 300 });
-  const [crop, setCrop] = useState({ x: 50, y: 50, size: 200 });
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState("");
+  const pinchRef = useRef(null);
 
   useEffect(() => {
-    setReady(false);
-    setError("");
-    const img = new window.Image();
-    img.onload = () => {
-      const maxW = 320;
-      const maxH = 400;
-      const ratio = Math.min(maxW / img.width, maxH / img.height);
-      const displayed = {
-        x: Math.round((maxW - img.width * ratio) / 2),
-        y: Math.round((maxH - img.height * ratio) / 2),
-        w: Math.round(img.width * ratio),
-        h: Math.round(img.height * ratio),
-      };
-      const size = Math.round(Math.min(displayed.w, displayed.h) * 0.72);
+    const img = new Image();
 
-      setImgNaturalSize({ w: img.width, h: img.height });
-      setImgDisplayed(displayed);
-      setCrop({
-        x: displayed.x + Math.round((displayed.w - size) / 2),
-        y: displayed.y + Math.round((displayed.h - size) / 2),
-        size,
+    img.onload = () => {
+      const fitScale = Math.max(
+        W / img.width,
+        H / img.height
+      );
+
+      setImgSize({
+        width: img.width,
+        height: img.height
       });
-      setReady(true);
+
+      setMinScale(fitScale);
+      setScale(fitScale);
+
+      setOffset({
+        x: 0,
+        y: 0
+      });
     };
-    img.onerror = () => setError("Não foi possível carregar essa imagem. Tente uma foto em JPG ou PNG.");
+
     img.src = src;
   }, [src]);
 
-  function clampCrop(next: any, base = imgDisplayed) {
-    const maxSize = Math.max(60, Math.min(base.w, base.h));
-    const size = Math.max(60, Math.min(maxSize, next.size));
+  function clampOffset(x, y, currentScale = scale) {
+    console.log({
+  imgWidth: imgSize.width,
+  imgHeight: imgSize.height,
+  scale: currentScale
+});
+    const iw = imgSize.width * currentScale;
+    const ih = imgSize.height * currentScale;
+
+    const maxX = Math.max(
+      0,
+      (iw - W) / 2
+    );
+
+    const maxY = Math.max(
+      0,
+      (ih - H) / 2
+    );
+
     return {
-      x: Math.max(base.x, Math.min(base.x + base.w - size, next.x)),
-      y: Math.max(base.y, Math.min(base.y + base.h - size, next.y)),
-      size,
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y))
     };
   }
 
-  function getPos(e: any) {
-    if (!frameRef.current) return { x: 0, y: 0 };
-    const rect = frameRef.current.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  function getPos(e) {
+    if (e.touches) {
+      return {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    }
+
+    return {
+      x: e.clientX,
+      y: e.clientY
+    };
   }
 
-  function startDrag(e: any, type: string) {
+  function getDistance(touches) {
+    const dx =
+      touches[0].clientX -
+      touches[1].clientX;
+
+    const dy =
+      touches[0].clientY -
+      touches[1].clientY;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function onStart(e) {
     e.preventDefault();
-    e.stopPropagation();
-    if (!ready) return;
-    const pos = getPos(e);
-    dragRef.current = { type, startX: pos.x, startY: pos.y, startCrop: { ...crop } };
+
+    if (e.touches?.length === 2) {
+      pinchRef.current = {
+        startDistance: getDistance(e.touches),
+        startScale: scale
+      };
+
+      return;
+    }
+
+    dragRef.current = {
+      ...getPos(e),
+      ox: offset.x,
+      oy: offset.y
+    };
   }
 
-  function onMove(e: any) {
+  function onMove(e) {
+    if (
+      e.touches?.length === 2 &&
+      pinchRef.current
+    ) {
+      e.preventDefault();
+
+      const ratio =
+        getDistance(e.touches) /
+        pinchRef.current.startDistance;
+
+      let newScale =
+        pinchRef.current.startScale *
+        ratio;
+
+      newScale = Math.max(
+        minScale,
+        Math.min(maxScale, newScale)
+      );
+
+      setScale(newScale);
+
+      setOffset(prev =>
+        clampOffset(
+          prev.x,
+          prev.y,
+          newScale
+        )
+      );
+
+      return;
+    }
+
     if (!dragRef.current) return;
+
     e.preventDefault();
-    const pos = getPos(e);
-    const dx = pos.x - dragRef.current.startX;
-    const dy = pos.y - dragRef.current.startY;
-    const start = dragRef.current.startCrop;
-    let next = { ...start };
 
-    if (dragRef.current.type === "move") {
-      next.x = start.x + dx;
-      next.y = start.y + dy;
-    }
-    if (dragRef.current.type === "br") next.size = start.size + Math.max(dx, dy);
-    if (dragRef.current.type === "tr") {
-      next.size = start.size + Math.max(dx, -dy);
-      next.y = start.y + start.size - next.size;
-    }
-    if (dragRef.current.type === "bl") {
-      next.size = start.size + Math.max(-dx, dy);
-      next.x = start.x + start.size - next.size;
-    }
-    if (dragRef.current.type === "tl") {
-      next.size = start.size + Math.max(-dx, -dy);
-      next.x = start.x + start.size - next.size;
-      next.y = start.y + start.size - next.size;
-    }
+    const p = getPos(e);
 
-    setCrop(clampCrop(next));
+    const nx =
+      dragRef.current.ox +
+      (p.x - dragRef.current.x);
+
+    const ny =
+      dragRef.current.oy +
+      (p.y - dragRef.current.y);
+
+    setOffset(clampOffset(nx, ny));
   }
 
-  function stopDrag() {
+  function onEnd() {
     dragRef.current = null;
+    pinchRef.current = null;
   }
 
   function handleCrop() {
-    if (!ready || !imageRef.current) return;
-
     const out = document.createElement("canvas");
-    out.width = 400;
-    out.height = 400;
-    const ctx = out.getContext("2d");
-    if (!ctx) return;
-    const scaleX = imgNaturalSize.w / imgDisplayed.w;
-    const scaleY = imgNaturalSize.h / imgDisplayed.h;
-    const sx = Math.max(0, (crop.x - imgDisplayed.x) * scaleX);
-    const sy = Math.max(0, (crop.y - imgDisplayed.y) * scaleY);
-    const sw = crop.size * scaleX;
-    const sh = crop.size * scaleY;
 
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, 400, 400);
-    ctx.drawImage(imageRef.current, sx, sy, sw, sh, 0, 0, 400, 400);
-    out.toBlob(blob => {
-      if (!blob) {
-        setError("Não foi possível cortar essa imagem. Tente outra foto.");
-        return;
+    out.width = isSquare ? 400 : 800;
+    out.height = isSquare ? 400 : 450;
+
+    const ctx = out.getContext("2d");
+
+    const img = new Image();
+
+    img.onload = () => {
+      const scaleOut = out.width / W;
+
+      const iw =
+        imgSize.width *
+        scale *
+        scaleOut;
+
+      const ih =
+        imgSize.height *
+        scale *
+        scaleOut;
+
+      const dx =
+        ((W -
+          imgSize.width *
+            scale) /
+          2 +
+          offset.x) *
+        scaleOut;
+
+      const dy =
+        ((H -
+          imgSize.height *
+            scale) /
+          2 +
+          offset.y) *
+        scaleOut;
+
+      if (isSquare) {
+        ctx.beginPath();
+
+        ctx.arc(
+          out.width / 2,
+          out.height / 2,
+          out.width / 2,
+          0,
+          Math.PI * 2
+        );
+
+        ctx.clip();
       }
-      onCrop(blob);
-    }, "image/jpeg", 0.92);
+
+      ctx.drawImage(
+        img,
+        dx,
+        dy,
+        iw,
+        ih
+      );
+
+      out.toBlob(
+        b => onCrop(b),
+        "image/jpeg",
+        0.92
+      );
+    };
+
+    img.src = src;
   }
 
-  const handles = [
-    ["tl", crop.x, crop.y, "nwse-resize"],
-    ["tr", crop.x + crop.size, crop.y, "nesw-resize"],
-    ["bl", crop.x, crop.y + crop.size, "nesw-resize"],
-    ["br", crop.x + crop.size, crop.y + crop.size, "nwse-resize"],
-  ];
-
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
-      <div style={{background:"#111",borderRadius:18,padding:16,width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
-        <div style={{color:C.white,fontSize:15,fontWeight:800,marginBottom:4}}>Ajustar foto de perfil</div>
-        <div style={{color:"rgba(255,255,255,.65)",fontSize:12,marginBottom:12}}>Arraste o quadrado ou use as alças para enquadrar.</div>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+          "rgba(0,0,0,.8)",
+        zIndex: 999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16
+      }}
+    >
+      <div
+        style={{
+          background: C.white,
+          borderRadius: 20,
+          padding: 20,
+          width: "100%",
+          maxWidth: 360
+        }}
+      >
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            marginBottom: 4
+          }}
+        >
+          Ajustar foto
+        </div>
 
         <div
-          ref={frameRef}
-          onPointerMove={onMove}
-          onPointerUp={stopDrag}
-          onPointerLeave={stopDrag}
-          style={{position:"relative",width:320,maxWidth:"100%",height:400,margin:"0 auto",overflow:"hidden",borderRadius:12,background:"#050505",touchAction:"none"}}
+          style={{
+            fontSize: 12,
+            color: C.sub,
+            marginBottom: 14
+          }}
         >
-          {ready&&(
-            <img
-              ref={imageRef}
-              src={src}
-              alt=""
-              draggable={false}
-              style={{position:"absolute",left:imgDisplayed.x,top:imgDisplayed.y,width:imgDisplayed.w,height:imgDisplayed.h,userSelect:"none",pointerEvents:"none"}}
-            />
-          )}
-
-          {!ready&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,.7)",fontSize:13}}>Carregando imagem...</div>}
-          {error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:22,color:C.white,fontSize:13,lineHeight:1.4}}>{error}</div>}
-
-          {ready&&(<>
-            <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.54)",pointerEvents:"none"}}/>
-            <div style={{position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,boxShadow:"0 0 0 999px rgba(0,0,0,.55)",border:`2px solid ${C.white}`,boxSizing:"border-box",cursor:"move"}}
-              onPointerDown={e=>startDrag(e,"move")}
-            />
-            <div style={{position:"absolute",left:crop.x,top:crop.y+crop.size/3,width:crop.size,height:1,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
-            <div style={{position:"absolute",left:crop.x,top:crop.y+crop.size*2/3,width:crop.size,height:1,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
-            <div style={{position:"absolute",left:crop.x+crop.size/3,top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
-            <div style={{position:"absolute",left:crop.x+crop.size*2/3,top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
-            <div style={{position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.65)",boxSizing:"border-box",pointerEvents:"none"}}/>
-            {handles.map(([type, x, y, cursor])=>(
-              <div key={type} onPointerDown={e=>startDrag(e,type)} style={{position:"absolute",left:x-11,top:y-11,width:22,height:22,borderRadius:6,background:C.white,border:`3px solid ${BLUE}`,boxSizing:"border-box",cursor:cursor,zIndex:2}}/>
-            ))}
-          </>)}
+          Arraste para posicionar ·
+          Use dois dedos para zoom
         </div>
 
-        <div style={{display:"flex",gap:10,marginTop:14}}>
-          <button onClick={onCancel} style={{flex:1,padding:12,borderRadius:10,border:"1px solid #444",background:"transparent",color:C.white,fontWeight:800,cursor:"pointer",fontSize:14}}>Cancelar</button>
-          <button onClick={handleCrop} disabled={!ready} style={{flex:1,padding:12,borderRadius:10,border:"none",background:BLUE,color:C.white,fontWeight:800,cursor:ready?"pointer":"not-allowed",fontSize:14,opacity:ready?1:.55}}>Confirmar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+        <div
+          onMouseDown={onStart}
+          onMouseMove={onMove}
+          onMouseUp={onEnd}
+          onMouseLeave={onEnd}
+          onTouchStart={onStart}
+          onTouchMove={onMove}
+          onTouchEnd={onEnd}
+          style={{
+            width: W,
+            height: H,
+            margin: "0 auto 14px",
+            overflow: "hidden",
+            position: "relative",
+            touchAction: "none",
+            borderRadius:
+              isSquare
+                ? "50%"
+                : 10,
+            border:
+              `3px solid ${C.blue}`
+          }}
+        >
+<img
+  ref={imgRef}
+  src={src}
+  draggable={false}
+  style={{
+    position: "absolute",
+    left: "50%",
+    top: "50%",
 
-// ── Banner cropper (livre, sem forma circular) ─────────────────
-function BannerCropper({ src, onCrop, onCancel }) {
-  const containerRef = useRef(null);
-  const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
-  const [imgDisplayed, setImgDisplayed] = useState({ x: 0, y: 0, w: 320, h: 200 });
-  // crop ratio 16:9 for banner
-  const RATIO = 16 / 9;
-  const [crop, setCrop] = useState({ x: 0, y: 0, w: 320, h: 180 });
-  const [ready, setReady] = useState(false);
-  const dragRef = useRef<any>(null);
+    width: imgSize.width,
+    height: imgSize.height,
 
-  useEffect(() => {
-    const img = new window.Image();
-    img.onload = () => {
-      setImgNaturalSize({ w: img.width, h: img.height });
-      const maxW = 320, maxH = 280;
-      const ratio = Math.min(maxW / img.width, maxH / img.height);
-      const dw = Math.round(img.width * ratio);
-      const dh = Math.round(img.height * ratio);
-      const dx = Math.round((maxW - dw) / 2);
-      const dy = Math.round((maxH - dh) / 2);
-      setImgDisplayed({ x: dx, y: dy, w: dw, h: dh });
-      const cw = Math.min(dw, Math.round(dh * RATIO));
-      const ch = Math.round(cw / RATIO);
-      const cx = dx + Math.round((dw - cw) / 2);
-      const cy = dy + Math.round((dh - ch) / 2);
-      setCrop({ x: cx, y: cy, w: cw, h: ch });
-      setReady(true);
-    };
-    img.src = src;
-  }, [src]);
+    userSelect: "none",
+    pointerEvents: "none",
 
-  function clampCrop(x: number, y: number, w: number, im?: any) {
-    const img = im || imgDisplayed;
-    const minW = 60;
-    const maxW = img.w;
-    const cw = Math.max(minW, Math.min(maxW, w));
-    const ch = Math.round(cw / RATIO);
-    const cx = Math.max(img.x, Math.min(img.x + img.w - cw, x));
-    const cy = Math.max(img.y, Math.min(img.y + img.h - ch, y));
-    return { x: cx, y: cy, w: cw, h: ch };
-  }
+    transform: `
+      translate(
+        calc(-50% + ${offset.x}px),
+        calc(-50% + ${offset.y}px)
+      )
+      scale(${scale})
+    `,
 
-  function getPos(e: any) {
-    if (!containerRef.current) return { x: 0, y: 0 };
-    const rect = containerRef.current.getBoundingClientRect();
-    const s = e.touches ? e.touches[0] : e;
-    return { x: s.clientX - rect.left, y: s.clientY - rect.top };
-  }
-
-  function onDown(e: any, type: string) {
-    e.preventDefault(); e.stopPropagation();
-    const pos = getPos(e);
-    dragRef.current = { type, startX: pos.x, startY: pos.y, startCrop: { ...crop } };
-  }
-
-  function onMove(e: any) {
-    if (!dragRef.current) return; e.preventDefault();
-    const pos = getPos(e);
-    const dx = pos.x - dragRef.current.startX;
-    const dy = pos.y - dragRef.current.startY;
-    const sc = dragRef.current.startCrop;
-    if (dragRef.current.type === "move") {
-      setCrop(clampCrop(sc.x + dx, sc.y + dy, sc.w));
-    } else if (dragRef.current.type === "r") {
-      setCrop(clampCrop(sc.x, sc.y, sc.w + dx));
-    } else if (dragRef.current.type === "l") {
-      const nw = sc.w - dx;
-      setCrop(clampCrop(sc.x + dx, sc.y, nw));
-    }
-  }
-
-  function onUp() { dragRef.current = null; }
-
-  function handleCrop() {
-    const out = document.createElement("canvas");
-    out.width = 800; out.height = Math.round(800 / RATIO);
-    const ctx = out.getContext("2d");
-    if (!ctx) return;
-    const scaleX = imgNaturalSize.w / imgDisplayed.w;
-    const scaleY = imgNaturalSize.h / imgDisplayed.h;
-    const sx = (crop.x - imgDisplayed.x) * scaleX;
-    const sy = (crop.y - imgDisplayed.y) * scaleY;
-    const sw = crop.w * scaleX;
-    const sh = crop.h * scaleY;
-    const img = new window.Image();
-    img.onload = () => {
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, out.width, out.height);
-      out.toBlob(b => { if(b) onCrop(b); }, "image/jpeg", 0.92);
-    };
-    img.src = src;
-  }
-
-  const H = 14;
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16 }}>
-      <div style={{ background:"#1a1a1a",borderRadius:20,padding:20,width:"100%",maxWidth:360 }}>
-        <div style={{ color:"white",fontSize:15,fontWeight:700,marginBottom:4 }}>Ajustar foto de fundo</div>
-        <div style={{ color:"#aaa",fontSize:12,marginBottom:14 }}>Arraste para enquadrar o fundo do perfil</div>
-
-        <div ref={containerRef} style={{ position:"relative",width:320,height:280,margin:"0 auto",overflow:"hidden",borderRadius:10,background:"#000",touchAction:"none" }}
-          onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
-          onTouchMove={onMove} onTouchEnd={onUp}>
-
-          {ready && <img src={src} draggable={false} style={{ position:"absolute",left:imgDisplayed.x,top:imgDisplayed.y,width:imgDisplayed.w,height:imgDisplayed.h,userSelect:"none",pointerEvents:"none" }} alt=""/>}
-
-          {ready && (<>
-            <div style={{ position:"absolute",top:0,left:0,right:0,height:crop.y,background:"rgba(0,0,0,0.6)" }}/>
-            <div style={{ position:"absolute",top:crop.y+crop.h,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)" }}/>
-            <div style={{ position:"absolute",top:crop.y,left:0,width:crop.x,height:crop.h,background:"rgba(0,0,0,0.6)" }}/>
-            <div style={{ position:"absolute",top:crop.y,left:crop.x+crop.w,right:0,height:crop.h,background:"rgba(0,0,0,0.6)" }}/>
-
-            <div style={{ position:"absolute",left:crop.x,top:crop.y,width:crop.w,height:crop.h,border:`2px solid ${BLUE}`,boxSizing:"border-box",cursor:"move" }}
-              onMouseDown={e=>onDown(e,"move")} onTouchStart={e=>onDown(e,"move")}/>
-
-            {/* grid lines */}
-            {[1,2].map(i=><span key={`grid-${i}`}>
-              <div style={{ position:"absolute",left:crop.x,top:crop.y+Math.round(crop.h*i/3),width:crop.w,height:1,background:"rgba(255,255,255,0.25)",pointerEvents:"none" }}/>
-              <div style={{ position:"absolute",left:crop.x+Math.round(crop.w*i/3),top:crop.y,width:1,height:crop.h,background:"rgba(255,255,255,0.25)",pointerEvents:"none" }}/>
-            </span>)}
-
-            {/* left/right handles */}
-            <div onMouseDown={e=>onDown(e,"l")} onTouchStart={e=>onDown(e,"l")} style={{ position:"absolute",left:crop.x-H/2,top:crop.y+crop.h/2-H,width:H,height:H*2,background:BLUE,borderRadius:4,cursor:"ew-resize",zIndex:2 }}/>
-            <div onMouseDown={e=>onDown(e,"r")} onTouchStart={e=>onDown(e,"r")} style={{ position:"absolute",left:crop.x+crop.w-H/2,top:crop.y+crop.h/2-H,width:H,height:H*2,background:BLUE,borderRadius:4,cursor:"ew-resize",zIndex:2 }}/>
-          </>)}
+    transformOrigin: "center center"
+  }}
+/>
         </div>
 
-        <div style={{ display:"flex",gap:10,marginTop:16 }}>
-          <button onClick={onCancel} style={{ flex:1,padding:12,borderRadius:10,border:"1px solid #444",background:"transparent",color:"white",fontWeight:700,cursor:"pointer",fontSize:14 }}>Cancelar</button>
-          <button onClick={handleCrop} style={{ flex:1,padding:12,borderRadius:10,border:"none",background:BLUE,color:"white",fontWeight:700,cursor:"pointer",fontSize:14 }}>Confirmar</button>
+        <div
+          style={{
+            display: "flex",
+            gap: 10
+          }}
+        >
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1
+            }}
+          >
+            Cancelar
+          </button>
+
+          <button
+            onClick={handleCrop}
+            style={{
+              flex: 1
+            }}
+          >
+            Salvar
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
 // ── Auth ──────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [mode,setMode]=useState("login");
@@ -407,7 +455,6 @@ function AuthScreen({ onLogin }) {
   const [pw,setPw]=useState("");
   const [pw2,setPw2]=useState("");
   const [showPw,setShowPw]=useState(false);
-  const [keepLogin,setKeepLogin]=useState(false);
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
   const [success,setSuccess]=useState("");
@@ -418,30 +465,8 @@ function AuthScreen({ onLogin }) {
     setError("");setLoading(true);
     const {data,error:err}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password:pw});
     if(err){setError("E-mail ou senha incorretos.");setLoading(false);return;}
-    let {data:p}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
-    if (!p) {
-      // Se por algum motivo o perfil não tenha sido criado no cadastro (ex: RLS, e-mail pendente), criamos aqui
-      const fallbackName = data.user.user_metadata?.name || email.split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-      const initials = fallbackName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
-      const newProfile = {
-        id: data.user.id,
-        name: fallbackName,
-        initials,
-        area: "Gestão de Pessoas",
-        role: "membro",
-        bio: "",
-        avatar: ""
-      };
-      const { error: insErr } = await supabase.from("profiles").insert(newProfile);
-      if (!insErr) {
-        p = newProfile;
-      } else {
-        console.error("Erro de RLS ou inserção ao criar perfil sob demanda:", insErr);
-        // Mesmo se falhar, definimos um perfil temporário para não quebrar a sessão
-        p = newProfile;
-      }
-    }
-    onLogin({...p,email:data.user.email},keepLogin);
+    const {data:p}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
+    onLogin({...p,email:data.user.email});
   }
 
   async function handleSignup() {
@@ -450,54 +475,11 @@ function AuthScreen({ onLogin }) {
     if(pw!==pw2){setError("As senhas não coincidem.");return;}
     if(pw.length<6){setError("Mínimo 6 caracteres na senha.");return;}
     setError("");setLoading(true);
-
-    // 1. Criar o usuário no Supabase Auth com metadados para redundância
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password: pw,
-      options: {
-        data: { name: name.trim() }
-      }
-    });
-
-    if (authError) {
-      console.error("Erro ao criar login:", authError);
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (!data || !data.user) {
-      setError("Não foi possível gerar a conta de usuário.");
-      setLoading(false);
-      return;
-    }
-
-    // 2. Calcular as iniciais
-    const initials = name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
-
-    // 3. Criar registro na tabela profiles correspondente
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .insert({
-        id: data.user.id,
-        name: name.trim(),
-        initials,
-        area: "Gestão de Pessoas",
-        role: "membro",
-        bio: "",
-        avatar: ""
-      });
-
-    if (profileError) {
-      // Se houver erro de RLS aqui devido a confirmação de e-mail ativada, informamos o usuário
-      // mas não bloqueamos o cadastro completo de Auth
-      console.warn("Aviso ao criar perfil na tabela (comum se confirmação de e-mail estiver ativa):", profileError);
-    }
-
-    setLoading(false);
-    setSuccess("Conta criada! Se a confirmação de e-mail estiver ativa no seu Supabase, confirme seu e-mail. Caso contrário, você já pode entrar.");
-    setMode("login");
+    const {data,error:err}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password:pw});
+    if(err){setError(err.message);setLoading(false);return;}
+    const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
+    await supabase.from("profiles").insert({id:data.user.id,name:name.trim(),initials,area:"Gestão de Pessoas",role:"membro",bio:"",avatar:""});
+    setLoading(false);setSuccess("Conta criada! Você já pode entrar.");setMode("login");
   }
 
   return (
@@ -512,8 +494,8 @@ function AuthScreen({ onLogin }) {
         <div style={{fontSize:13,color:C.sub}}>{mode==="login"?"Entre com seu e-mail institucional":"Use seu e-mail @uel.br"}</div>
       </div>
       {success&&<div style={{fontSize:13,color:C.green,fontWeight:600,marginBottom:14,padding:"10px 14px",background:"#ECFDF5",borderRadius:9,textAlign:"center"}}>{success}</div>}
-      {mode==="signup"&&<Inp label="Nome completo" placeholder="Seu nome" value={name} onChange={(e)=>{setName(e.target.value);setError("");}}/>}
-      <Inp label="E-mail" type="email" placeholder="seu.nome@uel.br" value={email} onChange={(e)=>{setEmail(e.target.value);setError("");}} onKeyDown={(e)=>e.key==="Enter"&&(mode==="login"?handleLogin():handleSignup())}/>
+      {mode==="signup"&&<Inp label="Nome completo" placeholder="Seu nome" value={name} onChange={e=>{setName(e.target.value);setError("");}}/>}
+      <Inp label="E-mail" type="email" placeholder="seu.nome@uel.br" value={email} onChange={e=>{setEmail(e.target.value);setError("");}} onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleSignup())}/>
       <div style={{marginBottom:error?8:20}}>
         <FL>Senha</FL>
         <div style={{position:"relative"}}>
@@ -523,13 +505,7 @@ function AuthScreen({ onLogin }) {
           <button onClick={()=>setShowPw(v=>!v)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:0,display:"flex"}}>{showPw?Ic.eyeOff():Ic.eye()}</button>
         </div>
       </div>
-      {mode==="login"&&(
-        <label style={{display:"flex",alignItems:"center",gap:8,margin:"-8px 0 16px",fontSize:13,color:C.sub,cursor:"pointer"}}>
-          <input type="checkbox" checked={keepLogin} onChange={e=>setKeepLogin(e.target.checked)} style={{width:16,height:16,accentColor:C.blue}}/>
-          Manter o login neste aparelho
-        </label>
-      )}
-      {mode==="signup"&&<Inp label="Confirmar senha" type="password" placeholder="Repita a senha" value={pw2} onChange={(e)=>{setPw2(e.target.value);setError("");}}/>}
+      {mode==="signup"&&<Inp label="Confirmar senha" type="password" placeholder="Repita a senha" value={pw2} onChange={e=>{setPw2(e.target.value);setError("");}}/>}
       {error&&<div style={{fontSize:13,color:C.red,marginBottom:14,fontWeight:500}}>{error}</div>}
       <Btn full onClick={mode==="login"?handleLogin:handleSignup} disabled={loading}>{loading?(mode==="login"?"Entrando...":"Criando conta..."):(mode==="login"?"Entrar":"Criar conta")}</Btn>
       <button onClick={()=>{setMode(m=>m==="login"?"signup":"login");setError("");setSuccess("");}} style={{marginTop:16,background:"none",border:"none",cursor:"pointer",fontSize:13,color:C.blue,fontWeight:600}}>
@@ -551,13 +527,13 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   const [cropSrc,setCropSrc]=useState(null);
   const [cropAspect,setCropAspect]=useState("square");
   const [bannerColor,setBannerColor]=useState(user.bannerColor||C.blue);
-  const avatarRef=useRef(null);
-  const bannerRef=useRef(null);
+  const avatarRef=useRef();
+  const bannerRef=useRef();
 
-  function pickFile(ref,aspect){setCropAspect(aspect);ref.current?.click();}
+  function pickFile(ref,aspect){setCropAspect(aspect);ref.current.click();}
   function onFileChange(e,aspect){
     const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();r.onload=ev=>{if (ev.target?.result) { setCropSrc(ev.target.result); setCropAspect(aspect); } };r.readAsDataURL(f);e.target.value="";
+    const r=new FileReader();r.onload=ev=>{setCropSrc(ev.target.result);setCropAspect(aspect);};r.readAsDataURL(f);e.target.value="";
   }
   async function onCrop(blob){
     const isAvatar=cropAspect==="square";
@@ -574,7 +550,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   async function handleSave(){
     if(pw&&pw!==pw2){setPwErr("As senhas não coincidem.");return;}
     setPwErr("");setLoading(true);
-    const initials=name.trim().split(" ").filter(Boolean).map((n)=>n[0]).join("").slice(0,2).toUpperCase();
+    const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
     await supabase.from("profiles").update({name,bio,initials}).eq("id",user.id);
     if(pw)await supabase.auth.updateUser({password:pw});
     onUpdate({name,bio,initials});setPw("");setPw2("");setLoading(false);setSaved(true);setTimeout(()=>setSaved(false),2500);
@@ -587,11 +563,7 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box;} input:focus,textarea:focus,select:focus{outline:none;border-color:${C.blue}!important;} button{font-family:inherit;} ::-webkit-scrollbar{display:none;}`}</style>
-      {cropSrc&&(
-        cropAspect==="square"
-          ? <AvatarCropper src={cropSrc} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>
-          : <BannerCropper src={cropSrc} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>
-      )}
+      {cropSrc&&<ImageCropper src={cropSrc} aspect={cropAspect} onCrop={onCrop} onCancel={()=>setCropSrc(null)}/>}
       <input ref={avatarRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"square")}/>
       <input ref={bannerRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>onFileChange(e,"banner")}/>
 
@@ -638,12 +610,12 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
           </div>
         )}
         <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>Informações pessoais</div>
-        <Inp label="Nome completo" value={name} onChange={(e)=>setName(e.target.value)}/>
+        <Inp label="Nome completo" value={name} onChange={e=>setName(e.target.value)}/>
         <div style={{marginBottom:12}}><FL>E-mail</FL><div style={{padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.muted,background:"#f9fafb"}}>{user.email}</div></div>
-        <Txt label="Bio" value={bio} rows={3} onChange={(e)=>setBio(e.target.value)}/>
+        <Txt label="Bio" value={bio} rows={3} onChange={e=>setBio(e.target.value)}/>
         <div style={{fontSize:11,fontWeight:700,color:C.blue,margin:"4px 0 14px",textTransform:"uppercase",letterSpacing:1}}>Alterar senha</div>
-        <Inp label="Nova senha" type="password" placeholder="Deixe em branco para manter" value={pw} onChange={(e)=>{setPw(e.target.value);setPwErr("");}}/>
-        <Inp label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" value={pw2} onChange={(e)=>{setPw2(e.target.value);setPwErr("");}}/>
+        <Inp label="Nova senha" type="password" placeholder="Deixe em branco para manter" value={pw} onChange={e=>{setPw(e.target.value);setPwErr("");}}/>
+        <Inp label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" value={pw2} onChange={e=>{setPw2(e.target.value);setPwErr("");}}/>
         {pwErr&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{pwErr}</div>}
         {saved&&<div style={{fontSize:13,color:C.green,fontWeight:600,marginBottom:10,textAlign:"center"}}>✓ Perfil atualizado!</div>}
         <Btn full onClick={handleSave} disabled={loading}>{loading?"Salvando...":"Salvar alterações"}</Btn>
@@ -660,7 +632,7 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
   const [form,setForm]=useState({...demanda});
   const [anexos,setAnexos]=useState([]);
   const [uploading,setUploading]=useState(false);
-  const anexoRef=useRef(null);
+  const anexoRef=useRef();
 
   useEffect(()=>{supabase.from("anexos").select("*").eq("demanda_id",demanda.id).then(({data})=>setAnexos(data||[]));},[demanda.id]);
 
@@ -698,17 +670,17 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
         {editing?(
           <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16}}>
             <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:14}}>Editar demanda</div>
-            <Inp label="Título" value={form.titulo} onChange={(e)=>setForm((v)=>({...v,titulo:e.target.value}))}/>
-            <Inp label="Responsável" value={form.resp} onChange={(e)=>setForm((v)=>({...v,resp:e.target.value}))}/>
-            <Inp label="Prazo" type="date" value={form.prazo} onChange={(e)=>setForm((v)=>({...v,prazo:e.target.value}))}/>
-            <Sel label="Status" value={form.status} onChange={(e)=>setForm((v)=>({...v,status:e.target.value}))}>
+            <Inp label="Título" value={form.titulo} onChange={e=>setForm(v=>({...v,titulo:e.target.value}))}/>
+            <Inp label="Responsável" value={form.resp} onChange={e=>setForm(v=>({...v,resp:e.target.value}))}/>
+            <Inp label="Prazo" type="date" value={form.prazo} onChange={e=>setForm(v=>({...v,prazo:e.target.value}))}/>
+            <Sel label="Status" value={form.status} onChange={e=>setForm(v=>({...v,status:e.target.value}))}>
               {Object.entries(STATUS).map(([k,s])=><option key={k} value={k}>{s.label}</option>)}
             </Sel>
-            <Sel label="Prioridade" value={form.prioridade} onChange={(e)=>setForm((v)=>({...v,prioridade:e.target.value}))}>
+            <Sel label="Prioridade" value={form.prioridade} onChange={e=>setForm(v=>({...v,prioridade:e.target.value}))}>
               {Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
             </Sel>
-            <Txt label="Descrição" value={form.descricao} rows={4} onChange={(e)=>setForm((v)=>({...v,descricao:e.target.value}))}/>
-            <Txt label="Observações" value={form.obs} rows={3} onChange={(e)=>setForm((v)=>({...v,obs:e.target.value}))}/>
+            <Txt label="Descrição" value={form.descricao} rows={4} onChange={e=>setForm(v=>({...v,descricao:e.target.value}))}/>
+            <Txt label="Observações" value={form.obs} rows={3} onChange={e=>setForm(v=>({...v,obs:e.target.value}))}/>
             <div style={{display:"flex",gap:8}}>
               <Btn onClick={save} style={{flex:1}}>Salvar</Btn>
               <Btn variant="secondary" onClick={()=>setEditing(false)} style={{flex:1}}>Cancelar</Btn>
@@ -742,7 +714,7 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
                   {i<anexos.length-1&&<Divider m={0}/>}
                 </div>
               )):<div style={{fontSize:13,color:C.muted,textAlign:"center",padding:"8px 0"}}>Nenhum anexo</div>}
-              {canEdit&&<button onClick={()=>anexoRef.current?.click()} disabled={uploading} style={{marginTop:anexos.length?12:0,width:"100%",padding:"9px",borderRadius:9,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13,opacity:uploading ? 0.6 : 1}}>{Ic.clip(C.blue)}{uploading?"Enviando...":"Anexar arquivo"}</button>}
+              {canEdit&&<button onClick={()=>anexoRef.current.click()} disabled={uploading} style={{marginTop:anexos.length?12:0,width:"100%",padding:"9px",borderRadius:9,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13,opacity:uploading?.6:1}}>{Ic.clip(C.blue)}{uploading?"Enviando...":"Anexar arquivo"}</button>}
             </div>
           </>
         )}
@@ -752,77 +724,45 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
 }
 
 // ── Full Calendar ─────────────────────────────────────────────
-function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }) {
+function FullCalendar({ eventos, canManage, onAdd }) {
   const year=2026;
   const [form,setForm]=useState(false);
-  const [selectedDate,setSelectedDate]=useState("");
-  const [editing,setEditing]=useState(null);
   const [novo,setNovo]=useState({titulo:"",date:"",hora:"",local:""});
-  const eventMap = {};
-  eventos.forEach((ev)=>{
-    const key=ev.data||ev.date;
-    if(!eventMap[key])eventMap[key]=[];
-    eventMap[key].push(ev);
-  });
+  const eventMap={};
+  eventos.forEach(ev=>{eventMap[ev.data||ev.date]=ev;});
 
-  function openForm(date,ev=null){
-    if(!canManage)return;
-    setSelectedDate(date);
-    setEditing(ev);
-    setNovo(ev?{titulo:ev.titulo||"",date:ev.data||ev.date,hora:ev.hora||"",local:ev.local||""}:{titulo:"",date,hora:"",local:""});
-    setForm(true);
-  }
-
-  async function save(){
+  async function add(){
     if(!novo.titulo||!novo.date)return;
-    if(editing){
-      const {data,error}=await supabase.from("eventos").update({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).eq("id",editing.id).select().single();
-      if(!error&&data)onUpdate(data);
-    }else{
-      const {data,error}=await supabase.from("eventos").insert({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).select().single();
-      if(!error&&data)onAdd(data);
-    }
-    setNovo({titulo:"",date:"",hora:"",local:""});setEditing(null);setForm(false);
-  }
-
-  async function remove(ev){
-    if(!window.confirm("Excluir este evento?"))return;
-    const {error}=await supabase.from("eventos").delete().eq("id",ev.id);
-    if(!error)onDelete(ev.id);
+    const {data}=await supabase.from("eventos").insert({titulo:novo.titulo,data:novo.date,hora:novo.hora,local:novo.local}).select().single();
+    onAdd(data);setNovo({titulo:"",date:"",hora:"",local:""});setForm(false);
   }
 
   return (
     <div>
-      <SLabel>Calendário 2026</SLabel>
+      <SLabel action={canManage&&<button onClick={()=>setForm(v=>!v)} style={{width:28,height:28,borderRadius:8,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}>Calendário 2026</SLabel>
       {form&&(
         <div style={{margin:"0 20px 16px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>{editing?"Editar evento":"Novo evento"}</div>
-          <Inp label="Título" value={novo.titulo} onChange={(e)=>setNovo(v=>({...v,titulo:e.target.value}))}/>
-          <Inp label="Data" type="date" value={novo.date} onChange={(e)=>setNovo(v=>({...v,date:e.target.value}))}/>
-          <Inp label="Horário" type="time" value={novo.hora} onChange={(e)=>setNovo(v=>({...v,hora:e.target.value}))}/>
-          <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={(e)=>setNovo(v=>({...v,local:e.target.value}))}/>
-          <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1}}>{editing?"Salvar":"Adicionar"}</Btn><Btn variant="secondary" onClick={()=>{setForm(false);setEditing(null);}} style={{flex:1}}>Cancelar</Btn></div>
+          <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Novo evento</div>
+          <Inp label="Título" value={novo.titulo} onChange={e=>setNovo(v=>({...v,titulo:e.target.value}))}/>
+          <Inp label="Data" type="date" value={novo.date} onChange={e=>setNovo(v=>({...v,date:e.target.value}))}/>
+          <Inp label="Horário" placeholder="ex: 19h00" value={novo.hora} onChange={e=>setNovo(v=>({...v,hora:e.target.value}))}/>
+          <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={e=>setNovo(v=>({...v,local:e.target.value}))}/>
+          <div style={{display:"flex",gap:8}}><Btn onClick={add} style={{flex:1}}>Adicionar</Btn><Btn variant="secondary" onClick={()=>setForm(false)} style={{flex:1}}>Cancelar</Btn></div>
         </div>
       )}
       {MONTHS.map((mName,mi)=>{
         const days=daysInMonth(year,mi),off=firstDay(year,mi);
-        const mEvts=eventos.filter((e)=>{const d=new Date((e.data||e.date)+"T00:00:00");return d.getFullYear()===year&&d.getMonth()===mi;});
+        const mEvts=eventos.filter(e=>{const d=new Date((e.data||e.date)+"T00:00:00");return d.getFullYear()===year&&d.getMonth()===mi;});
         return (
           <div key={mi} style={{margin:"0 20px 20px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 12px"}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12,paddingLeft:2}}>{mName}</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",textAlign:"center",gap:1}}>
               {DAYS_S.map((d,i)=><div key={i} style={{fontSize:9,fontWeight:700,color:C.muted,paddingBottom:6}}>{d}</div>)}
               {Array.from({length:off}).map((_,i)=><div key={`e${i}`}/>)}
-              {Array.from({length:days},(_, i)=>{
+              {Array.from({length:days},(_,i)=>{
                 const day=i+1,iso=`${year}-${String(mi+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                const has=!!eventMap[iso],isT=iso===todayIso(),selected=selectedDate===iso;
-                return (
-                  <button key={day} onClick={()=>canManage&&setSelectedDate(iso)} style={{width:32,height:32,margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,position:"relative",background:isT?C.blue:selected?C.blueSoft:"transparent",color:isT?C.white:has?C.blue:C.text,fontWeight:isT||has?700:400,border:"none",cursor:canManage?"pointer":"default"}}>
-                    {day}
-                    {has&&!isT&&<div style={{position:"absolute",bottom:3,width:3,height:3,borderRadius:"50%",background:C.blue}}/>}
-                    {selected&&canManage&&<span onClick={e=>{e.stopPropagation();openForm(iso);}} style={{position:"absolute",right:-5,top:-5,width:16,height:16,borderRadius:"50%",background:C.blue,color:C.white,fontSize:13,lineHeight:"16px",fontWeight:800}}>+</span>}
-                  </button>
-                );
+                const has=!!eventMap[iso],isT=iso===todayIso();
+                return <div key={day} style={{width:28,height:28,margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,position:"relative",background:isT?C.blue:"transparent",color:isT?C.white:has?C.blue:C.text,fontWeight:isT||has?700:400}}>{day}{has&&!isT&&<div style={{position:"absolute",bottom:2,width:3,height:3,borderRadius:"50%",background:C.blue}}/>}</div>;
               })}
             </div>
             {mEvts.length>0&&(
@@ -832,10 +772,6 @@ function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }) {
                     <div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 2px"}}>
                       <div style={{minWidth:28,height:28,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,fontWeight:800,color:C.blue}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span></div>
                       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ev.titulo}</div><div style={{fontSize:11,color:C.sub}}>{ev.hora}{ev.local&&` · ${ev.local}`}</div></div>
-                      {canManage&&<div style={{display:"flex",gap:6}}>
-                        <button onClick={()=>openForm(ev.data||ev.date,ev)} style={{width:28,height:28,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.edit()}</button>
-                        <button onClick={()=>remove(ev)} style={{width:28,height:28,borderRadius:7,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>
-                      </div>}
                     </div>
                     {i<mEvts.length-1&&<Divider m={0}/>}
                   </div>
@@ -850,7 +786,7 @@ function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }) {
 }
 
 // ── Nav Tab ───────────────────────────────────────────────────
-function NavTab({active,icon,label,onClick,...rest}){
+function NavTab({active,icon,label,onClick}){
   return(
     <button onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 12px",transition:"transform .15s",transform:active?"translateY(-2px)":"none"}}>
       <div style={{width:40,height:32,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:active?C.blueSoft:"transparent",transition:"background .2s"}}>
@@ -862,7 +798,7 @@ function NavTab({active,icon,label,onClick,...rest}){
 }
 
 // ── Main App ──────────────────────────────────────────────────
-export default function App() {
+export default function BCApp() {
   const [user,     setUser]    = useState(null);
   const [loading,  setLoading] = useState(true);
   const [tab,      setTab]     = useState("inicio");
@@ -877,38 +813,13 @@ export default function App() {
   const [dNovo,    setDNovo]   = useState({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});
   const [members,  setMembers] = useState([]);
   const [membersTab,setMembersTab]=useState(false);
-  const uploadRef = useRef(null);
+  const uploadRef = useRef();
   const [uploadArea,setUploadArea]=useState(null);
-  const [appError,setAppError]=useState("");
 
   useEffect(()=>{
     supabase.auth.getSession().then(async({data:{session}})=>{
-      const keepLogin=localStorage.getItem("bc_keep_login")==="true";
-      if(session&&!keepLogin){
-        await supabase.auth.signOut();
-      } else if(session){
-        let {data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
-        if(!p){
-          // Se o perfil não existir por algum problema anterior, criamos ele sob demanda aqui também
-          const fallbackName = session.user.user_metadata?.name || (session.user.email || "Membro").split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-          const initials = fallbackName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
-          const newProfile = {
-            id: session.user.id,
-            name: fallbackName,
-            initials,
-            area: "Gestão de Pessoas",
-            role: "membro",
-            bio: "",
-            avatar: ""
-          };
-          const { error: insErr } = await supabase.from("profiles").insert(newProfile);
-          if (!insErr) {
-            p = newProfile;
-          } else {
-            console.error("Erro ao criar perfil em getSession:", insErr);
-            p = newProfile;
-          }
-        }
+      if(session){
+        const {data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
         if(p)setUser({...p,email:session.user.email});
       }
       setLoading(false);
@@ -923,35 +834,31 @@ export default function App() {
       .on("postgres_changes",{event:"*",schema:"public",table:"eventos"},loadEventos)
       .on("postgres_changes",{event:"*",schema:"public",table:"materiais"},loadMateriais)
       .subscribe();
-    return()=> { supabase.removeChannel(ch); };
-  }, [user]);
+    return()=>supabase.removeChannel(ch);
+  },[user]);
 
-  function loadAll(){loadDemandas();loadEventos();loadMateriais();loadMembers();}
-  async function loadDemandas(){const {data,error}=await supabase.from("demandas").select("*").order("criado_em",{ascending:false});if(error){setAppError("Não foi possível carregar as demandas.");return;}setDemandas(data||[]);}
-  async function loadEventos(){const {data,error}=await supabase.from("eventos").select("*").order("data");if(error){setAppError("Não foi possível carregar a agenda.");return;}setEventos(data||[]);}
-  async function loadMateriais(){const {data,error}=await supabase.from("materiais").select("*").order("criado_em");if(error){setAppError("Não foi possível carregar os materiais.");return;}const g={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
-  async function loadMembers(){const {data,error}=await supabase.from("profiles").select("*").order("name");if(error){setAppError("Não foi possível carregar os membros.");return;}setMembers(data||[]);}
-  async function updateMemberRole(id,role,area){const {error}=await supabase.from("profiles").update({role,area}).eq("id",id);if(error){setAppError("Não foi possível atualizar este membro.");return;}setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
-  async function handleUpload(e){const f=e.target.files[0];if(!f||!uploadArea)return;setAppError("");const path=`${uploadArea}/${Date.now()}_${f.name}`;const {error:uploadError}=await supabase.storage.from("materiais").upload(path,f);if(uploadError){setAppError("Não foi possível enviar o arquivo.");e.target.value="";return;}const {data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const {error:insertError}=await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});if(insertError){setAppError("Arquivo enviado, mas não foi possível salvar na lista de materiais.");e.target.value="";return;}setUploadArea(null);e.target.value="";loadMateriais();}
-  async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo||!dNovo.resp){setAppError("Preencha título, responsável e prazo da demanda.");return;}setAppError("");const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;const {error}=await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});if(error){setAppError("Não foi possível criar a demanda.");return;}setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);loadDemandas();}
-  async function logout(){localStorage.removeItem("bc_keep_login");await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
+  function loadAll(){loadDemandas();loadEventos();loadMateriais();}
+  async function loadDemandas(){const{data}=await supabase.from("demandas").select("*").order("criado_em",{ascending:false});setDemandas(data||[]);}
+  async function loadEventos(){const{data}=await supabase.from("eventos").select("*").order("data");setEventos(data||[]);}
+  async function loadMateriais(){const{data}=await supabase.from("materiais").select("*").order("criado_em");const g={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
+  async function loadMembers(){const{data}=await supabase.from("profiles").select("*").order("name");setMembers(data||[]);}
+  async function updateMemberRole(id,role,area){await supabase.from("profiles").update({role,area}).eq("id",id);setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
+  async function handleUpload(e){const f=e.target.files[0];if(!f||!uploadArea)return;const path=`${uploadArea}/${Date.now()}_${f.name}`;await supabase.storage.from("materiais").upload(path,f);const{data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});setUploadArea(null);e.target.value="";}
+  async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo)return;const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);}
+  async function logout(){await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
 
   // ── loading / auth guards ─────────────────────────────────
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.white}}><Spinner/></div>;
-  if(!user)return<AuthScreen onLogin={(u,keepLogin)=>{localStorage.setItem("bc_keep_login",keepLogin?"true":"false");setUser(u);setTab("inicio");setScreen("app");}}/>;
-  if(screen==="profile")return<ProfileScreen user={user} onUpdate={(u)=>setUser((p)=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
+  if(!user)return<AuthScreen onLogin={u=>{setUser(u);setTab("inicio");setScreen("app");}}/>;
+  if(screen==="profile")return<ProfileScreen user={user} onUpdate={u=>setUser(p=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
   if(screen==="demanda"&&selectedD){
     const d=demandas.find(x=>x.id===selectedD);
-    if(d)return<DemandaDetail demanda={d} canEdit={canManage(user)} onUpdate={(u)=>setDemandas(p=>p.map(x=>x.id===u.id?u:x))} onDelete={async()=>{await supabase.from("demandas").delete().eq("id",d.id);setDemandas(p=>p.filter(x=>x.id!==d.id));setScreen("app");setSelectedD(null);}} onBack={()=>{setScreen("app");setSelectedD(null);}}/>;
+    if(d)return<DemandaDetail demanda={d} canEdit={canManage(user)} onUpdate={u=>setDemandas(p=>p.map(x=>x.id===u.id?u:x))} onDelete={async()=>{await supabase.from("demandas").delete().eq("id",d.id);setDemandas(p=>p.filter(x=>x.id!==d.id));setScreen("app");setSelectedD(null);}} onBack={()=>{setScreen("app");setSelectedD(null);}}/>;
   }
 
   const myDemandas  = canSeeAll(user)?demandas:demandas.filter(d=>d.area===user.area);
   const urgentes    = myDemandas.filter(d=>d.status==="urgente"||d.status==="pendente");
-  const now = new Date();
-  const nextEventos = eventos.filter(e=>{
-    const d=new Date((e.data||e.date)+"T00:00:00");
-    return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&(e.data||e.date)>=todayIso();
-  }).slice(0,3);
+  const nextEventos = eventos.filter(e=>(e.data||e.date)>=todayIso()).slice(0,3);
   const totalAbertas   = myDemandas.filter(d=>d.status!=="concluido").length;
   const totalConcluidas= myDemandas.filter(d=>d.status==="concluido").length;
 
@@ -1049,42 +956,6 @@ export default function App() {
                       </div>
                     );
                   })}
-                  {/* Grupo fallback para papéis não mapeados, nulos ou pendentes de aprovação */}
-                  {(() => {
-                    const fallbackGroup = members.filter(m => !m.role || !["presidente", "vice", "diretor", "membro"].includes(m.role.toLowerCase()));
-                    if (!fallbackGroup.length) return null;
-                    return (
-                      <div key="outros">
-                        <div style={{padding:"12px 16px 6px"}}><span style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>Pendentes / Outros</span></div>
-                        {fallbackGroup.map((m)=>(
-                          <div key={m.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:user.role==="presidente"&&m.id!==user.id?8:0}}>
-                              <Avatar user={m} size={36}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
-                                <div style={{fontSize:11,color:C.sub,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.area || "Sem Área"}</div>
-                              </div>
-                            </div>
-                            {user.role==="presidente"&&m.id!==user.id&&(
-                              <div style={{display:"flex",gap:6}}>
-                                <select defaultValue={m.role || "membro"} onChange={e=>updateMemberRole(m.id,e.target.value,m.area || "Gestão de Pessoas")}
-                                  style={{flex:1,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  <option value="membro">Assessor(a)</option>
-                                  <option value="diretor">Diretor(a)</option>
-                                  <option value="vice">Vice-Presidente</option>
-                                  <option value="presidente">Presidente</option>
-                                </select>
-                                <select defaultValue={m.area || "Gestão de Pessoas"} onChange={e=>updateMemberRole(m.id,m.role || "membro",e.target.value)}
-                                  style={{flex:2,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  {["Presidência",...AREAS].map(a=><option key={a}>{a}</option>)}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
                 </div>
               </>
             )}
@@ -1105,7 +976,6 @@ export default function App() {
 
       {/* ── Body ── */}
       <div style={{paddingBottom:88}}>
-        {appError&&<div style={{margin:"12px 20px 0",padding:"10px 12px",borderRadius:10,background:"#FEF2F2",color:C.red,fontSize:13,fontWeight:600}}>{appError}</div>}
 
         {/* INÍCIO */}
         {tab==="inicio"&&(<>
@@ -1167,23 +1037,18 @@ export default function App() {
         {tab==="demandas"&&(<>
           <div style={{padding:"14px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             {canSeeAll(user)?<div style={{fontSize:12,color:C.blue,fontWeight:600,background:C.blueSoft,borderRadius:99,padding:"5px 14px"}}>Todas as áreas</div>:<div style={{fontSize:12,color:C.sub,background:C.white,border:`1px solid ${C.border}`,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5}}>{Ic.lock()} {user.area}</div>}
-            {canManage(user)&&<button onClick={()=>{setDForm(v=>!v);if(!members.length)loadMembers();}} style={{width:32,height:32,borderRadius:9,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}
+            {canManage(user)&&<button onClick={()=>setDForm(v=>!v)} style={{width:32,height:32,borderRadius:9,background:C.blue,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.plus()}</button>}
           </div>
           {dForm&&canManage(user)&&(
             <div style={{margin:"12px 20px 0",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
               <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Nova demanda</div>
-              <Inp label="Título" value={dNovo.titulo} onChange={(e)=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
-              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={(e)=>setDNovo(v=>({...v,area:e.target.value,resp:""}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
-              <Sel label="Responsável" value={dNovo.resp} onChange={(e)=>setDNovo(v=>({...v,resp:e.target.value}))}>
-                <option value="">Selecione um assessor</option>
-                {members
-                  .filter(m=>m.role==="membro"&&m.area===(canSeeAll(user)?dNovo.area||AREAS[0]:user.area))
-                  .map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
-              </Sel>
-              <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={(e)=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
-              <Sel label="Prioridade" value={dNovo.prioridade} onChange={(e)=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
-              <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={(e)=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
-              <Txt label="Observações" value={dNovo.obs} rows={2} onChange={(e)=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
+              <Inp label="Título" value={dNovo.titulo} onChange={e=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
+              <Inp label="Responsável" value={dNovo.resp} onChange={e=>setDNovo(v=>({...v,resp:e.target.value}))}/>
+              <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={e=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
+              <Sel label="Prioridade" value={dNovo.prioridade} onChange={e=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
+              <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={e=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
+              <Txt label="Observações" value={dNovo.obs} rows={2} onChange={e=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
+              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={e=>setDNovo(v=>({...v,area:e.target.value}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
               <div style={{display:"flex",gap:8}}><Btn onClick={addDemanda} style={{flex:1}}>Criar</Btn><Btn variant="secondary" onClick={()=>setDForm(false)} style={{flex:1}}>Cancelar</Btn></div>
             </div>
           )}
@@ -1214,7 +1079,7 @@ export default function App() {
         </>)}
 
         {/* CALENDÁRIO */}
-        {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={(ev)=>setEventos(p=>[...p,ev])} onUpdate={(ev)=>setEventos(p=>p.map(x=>x.id===ev.id?ev:x))} onDelete={(id)=>setEventos(p=>p.filter(x=>x.id!==id))}/>}
+        {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={ev=>setEventos(p=>[...p,ev])}/>}
 
         {/* MATERIAIS */}
         {tab==="materiais"&&(<>
@@ -1231,7 +1096,7 @@ export default function App() {
                 </button>
                 {isOpen&&(
                   <div style={{margin:"0 20px 6px"}}>
-                    {canUp&&<button onClick={()=>{setUploadArea(area);setTimeout(()=>uploadRef.current?.click(),50);}} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:10,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13}}>{Ic.upload(C.blue)} Fazer upload</button>}
+                    {canUp&&<button onClick={()=>{setUploadArea(area);setTimeout(()=>uploadRef.current.click(),50);}} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:10,border:`1.5px dashed ${C.blue}`,background:C.blueSoft,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.blue,fontWeight:600,fontSize:13}}>{Ic.upload(C.blue)} Fazer upload</button>}
                     {files.length>0&&(
                       <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
                         {files.map((f,fi)=>(
@@ -1241,7 +1106,7 @@ export default function App() {
                               <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{f.nome}</div><div style={{fontSize:11,color:C.muted,marginTop:1}}>{f.tamanho}</div></div>
                               <div style={{display:"flex",gap:6}}>
                                 <a href={f.url} target="_blank" rel="noreferrer" style={{width:30,height:30,borderRadius:7,border:`1px solid ${C.border}`,background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",textDecoration:"none"}}>{Ic.down()}</a>
-                                {canUp&&<button onClick={async()=>{await supabase.from("materiais").delete().eq("id",f.id);loadMaterialsQuietly();}} style={{width:30,height:30,borderRadius:7,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>}
+                                {canUp&&<button onClick={async()=>{await supabase.from("materiais").delete().eq("id",f.id);loadMateriais();}} style={{width:30,height:30,borderRadius:7,border:"none",background:"#FEF2F2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{Ic.trash()}</button>}
                               </div>
                             </div>
                             {fi<files.length-1&&<Divider m={14}/>}
@@ -1266,8 +1131,8 @@ export default function App() {
       </div>
     </div>
   );
-
-  async function loadMaterialsQuietly() {
-    loadMateriais();
-  }
 }
+
+
+
+
