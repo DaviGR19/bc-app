@@ -12,13 +12,13 @@ const AREAS = ["Geral","Comercial","Gestão de Pessoas","Projetos","Jurídico Fi
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const DAYS_S = ["D","S","T","Q","Q","S","S"];
-const STATUS: Record<string, { label: string; color: string; bg: string }> = {
+const STATUS = {
   urgente:   { label:"Urgente",      color:C.red,   bg:"#FEF2F2" },
   andamento: { label:"Em andamento", color:C.amber, bg:"#FFFBEB" },
   pendente:  { label:"Pendente",     color:C.blue,  bg:C.blueSoft},
   concluido: { label:"Concluído",    color:C.green, bg:"#ECFDF5" },
 };
-const PRIORIDADE: Record<string, { label: string; color: string }> = {
+const PRIORIDADE = {
   alta:  { label:"Alta",  color:C.red   },
   media: { label:"Média", color:C.amber },
   baixa: { label:"Baixa", color:C.green },
@@ -28,51 +28,51 @@ const BG_COLORS = ["#1A56DB","#7C3AED","#059669","#374151","#DB2777","#D97706"];
 function getSaudacao() { const h=new Date().getHours(); return h>=5&&h<12?"Bom dia":h>=12&&h<18?"Boa tarde":"Boa noite"; }
 function getDataAtual() { const n=new Date(); return `${WEEKDAYS[n.getDay()]}, ${n.getDate()} de ${MONTHS[n.getMonth()]} de ${n.getFullYear()}`; }
 function todayIso() { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`; }
-function fmtDate(iso?: string) { if(!iso)return"—"; const d=new Date(iso+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; }
-function daysInMonth(y: number, m: number) { return new Date(y,m+1,0).getDate(); }
-function firstDay(y: number, m: number) { return new Date(y,m,1).getDay(); }
-function canSeeAll(u: any) { return u?.role==="presidente"||u?.role==="vice"; }
-function canManage(u: any) { return u?.role==="presidente"||u?.role==="vice"||u?.role==="diretor"; }
-function getRoleLabel(r: string) { return ({presidente:"Presidente",vice:"Vice-Presidente",diretor:"Diretor(a)",membro:"Assessor(a)"} as Record<string, string>)[r]||r; }
+function fmtDate(iso) { if(!iso)return"—"; const d=new Date(iso+"T00:00:00"); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`; }
+function daysInMonth(y, m) { return new Date(y,m+1,0).getDate(); }
+function firstDay(y, m) { return new Date(y,m,1).getDay(); }
+function canSeeAll(u) { return u?.role==="presidente"||u?.role==="vice"; }
+function canManage(u) { return u?.role==="presidente"||u?.role==="vice"||u?.role==="diretor"; }
+function getRoleLabel(r) { return ({presidente:"Presidente",vice:"Vice-Presidente",diretor:"Diretor(a)",membro:"Assessor(a)"})[r]||r; }
 
 // ── atoms ─────────────────────────────────────────────────────
-function Pill({status}:{status: string}){const s=STATUS[status]||STATUS.pendente;return<span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99,color:s.color,background:s.bg,whiteSpace:"nowrap"}}>{s.label}</span>;}
+function Pill({status}){const s=STATUS[status]||STATUS.pendente;return<span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:99,color:s.color,background:s.bg,whiteSpace:"nowrap"}}>{s.label}</span>;}
 function Divider({m=20}){return<div style={{height:1,background:C.border,margin:`0 ${m}px`}}/>;}
-function SLabel({children,action}:{children: React.ReactNode; action?: React.ReactNode}){return<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 10px"}}><span style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{children}</span>{action}</div>;}
-function FL({children}:{children: React.ReactNode}){return<label style={{fontSize:11,fontWeight:700,color:C.sub,letterSpacing:.5,display:"block",marginBottom:5,textTransform:"uppercase"}}>{children}</label>;}
-function Inp({label,...p}: any){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<input {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",boxSizing:"border-box",...(p.style||{})}}/></div>;}
-function Sel({label,children,...p}: any){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<select {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit"}}>{children}</select></div>;}
-function Txt({label,...p}: any){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<textarea {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",...(p.style||{})}}/></div>;}
-function Btn({children,variant="primary",full,small,onClick,disabled,style={}}: any){const base={padding:small?"7px 14px":"12px 16px",borderRadius:10,border:"none",cursor:disabled?"not-allowed":"pointer",fontSize:small?13:14,fontWeight:700,fontFamily:"inherit",opacity:disabled ? 0.6 : 1,...style};const v: Record<string, any>={primary:{background:C.blue,color:C.white},secondary:{background:C.bg,color:C.sub,border:`1px solid ${C.border}`},danger:{background:"#FEF2F2",color:C.red,border:"1px solid #FECACA"}};return<button onClick={onClick} disabled={disabled} style={{...base,...v[variant],width:full?"100%":"auto"}}>{children}</button>;}
-function Avatar({user,size=38}: any){if(user?.avatar)return<img src={user.avatar} alt="" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0}}/>;return<div style={{width:size,height:size,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.34,fontWeight:700,color:C.white,flexShrink:0}}>{user?.initials||"?"}</div>;}
+function SLabel({children,action=null}){return<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 10px"}}><span style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{children}</span>{action}</div>;}
+function FL({children}){return<label style={{fontSize:11,fontWeight:700,color:C.sub,letterSpacing:.5,display:"block",marginBottom:5,textTransform:"uppercase"}}>{children}</label>;}
+function Inp({label,...p}){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<input {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",boxSizing:"border-box",...(p.style||{})}}/></div>;}
+function Sel({label,children,...p}){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<select {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit"}}>{children}</select></div>;}
+function Txt({label,...p}){return<div style={{marginBottom:12}}>{label&&<FL>{label}</FL>}<textarea {...p} style={{width:"100%",padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.text,background:C.bg,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",...(p.style||{})}}/></div>;}
+function Btn({children,variant="primary",full=false,small=false,onClick=null,disabled=false,style={}}){const base={padding:small?"7px 14px":"12px 16px",borderRadius:10,border:"none",cursor:disabled?"not-allowed":"pointer",fontSize:small?13:14,fontWeight:700,fontFamily:"inherit",opacity:disabled ? 0.6 : 1,...style};const v={primary:{background:C.blue,color:C.white},secondary:{background:C.bg,color:C.sub,border:`1px solid ${C.border}`},danger:{background:"#FEF2F2",color:C.red,border:"1px solid #FECACA"}};return<button onClick={onClick} disabled={disabled} style={{...base,...v[variant],width:full?"100%":"auto"}}>{children}</button>;}
+function Avatar({user,size=38}){if(user?.avatar)return<img src={user.avatar} alt="" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0}}/>;return<div style={{width:size,height:size,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.34,fontWeight:700,color:C.white,flexShrink:0}}>{user?.initials||"?"}</div>;}
 function Spinner(){return<div style={{display:"flex",justifyContent:"center",padding:"40px 0"}}><div style={{width:28,height:28,border:`3px solid ${C.border}`,borderTopColor:C.blue,borderRadius:"50%",animation:"spin .8s linear infinite"}}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;}
 
 // ── icons ──────────────────────────────────────────────────────
 const Ic={
-  home:  (c: string)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
-  check: (c: string)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  cal:   (c: string)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-  folder:(c: string)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
-  upload:(c?: string)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-  down:  (c?: string)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  chevD: (o?: boolean)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:o?"rotate(180deg)":"none",transition:"transform .2s"}}><polyline points="6 9 12 15 18 9"/></svg>,
-  chevR: (c?: string)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
-  plus:  (c?: string)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-  trash: (c?: string)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>,
-  edit:  (c?: string)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  home:  (c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
+  check: (c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
+  cal:   (c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  folder:(c=null)=><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+  upload:(c=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+  down:  (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  chevD: (o=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:o?"rotate(180deg)":"none",transition:"transform .2s"}}><polyline points="6 9 12 15 18 9"/></svg>,
+  chevR: (c=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  plus:  (c=null)=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  trash: (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>,
+  edit:  (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   lock:  ()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  eye:   ()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  eye:   ()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   eyeOff:()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
-  logout:(c?: string)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  camera:(c?: string)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
-  clip:  (c?: string)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
+  logout:(c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  camera:(c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+  clip:  (c=null)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c||C.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
   back:  ()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
-  cal2:  (c?: string)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-  person:(c?: string)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  people:(c?: string)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
-  flag:  (c?: string)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
-  image: (c?: string)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-  user:  (c?: string)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  cal2:  (c=null)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  person:(c=null)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  people:(c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+  flag:  (c=null)=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c||C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
+  image: (c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  user:  (c=null)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c||C.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
 };
 
 // ── Image Cropper ─────────────────────────────────────────────
@@ -80,10 +80,10 @@ const Ic={
 const BLUE = "#1A56DB";
 
 // ── CropBox para avatar (quadrado com alças, estilo WhatsApp) ─
-function AvatarCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: Blob) => void; onCancel: () => void }) {
-  const frameRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const dragRef = useRef<any>(null);
+function AvatarCropper({ src, onCrop, onCancel }) {
+  const frameRef = useRef(null);
+  const imageRef = useRef(null);
+  const dragRef = useRef(null);
   const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
   const [imgDisplayed, setImgDisplayed] = useState({ x: 0, y: 0, w: 300, h: 300 });
   const [crop, setCrop] = useState({ x: 50, y: 50, size: 200 });
@@ -249,7 +249,7 @@ function AvatarCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: 
             <div style={{position:"absolute",left:crop.x+crop.size*2/3,top:crop.y,width:1,height:crop.size,background:"rgba(255,255,255,.5)",pointerEvents:"none"}}/>
             <div style={{position:"absolute",left:crop.x,top:crop.y,width:crop.size,height:crop.size,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.65)",boxSizing:"border-box",pointerEvents:"none"}}/>
             {handles.map(([type, x, y, cursor])=>(
-              <div key={type} onPointerDown={e=>startDrag(e,type)} style={{position:"absolute",left:(x as number)-11,top:(y as number)-11,width:22,height:22,borderRadius:6,background:C.white,border:`3px solid ${BLUE}`,boxSizing:"border-box",cursor:(cursor as any),zIndex:2}}/>
+              <div key={type} onPointerDown={e=>startDrag(e,type)} style={{position:"absolute",left:x-11,top:y-11,width:22,height:22,borderRadius:6,background:C.white,border:`3px solid ${BLUE}`,boxSizing:"border-box",cursor:cursor,zIndex:2}}/>
             ))}
           </>)}
         </div>
@@ -264,8 +264,8 @@ function AvatarCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: 
 }
 
 // ── Banner cropper (livre, sem forma circular) ─────────────────
-function BannerCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: Blob) => void; onCancel: () => void }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+function BannerCropper({ src, onCrop, onCancel }) {
+  const containerRef = useRef(null);
   const [imgNaturalSize, setImgNaturalSize] = useState({ w: 1, h: 1 });
   const [imgDisplayed, setImgDisplayed] = useState({ x: 0, y: 0, w: 320, h: 200 });
   // crop ratio 16:9 for banner
@@ -400,7 +400,7 @@ function BannerCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: 
 }
 
 // ── Auth ──────────────────────────────────────────────────────
-function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => void }) {
+function AuthScreen({ onLogin }) {
   const [mode,setMode]=useState("login");
   const [email,setEmail]=useState("");
   const [name,setName]=useState("");
@@ -421,7 +421,7 @@ function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => v
     let {data:p}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
     if (!p) {
       // Se por algum motivo o perfil não tenha sido criado no cadastro (ex: RLS, e-mail pendente), criamos aqui
-      const fallbackName = (data.user.user_metadata?.name as string) || email.split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+      const fallbackName = data.user.user_metadata?.name || email.split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
       const initials = fallbackName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
       const newProfile = {
         id: data.user.id,
@@ -512,8 +512,8 @@ function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => v
         <div style={{fontSize:13,color:C.sub}}>{mode==="login"?"Entre com seu e-mail institucional":"Use seu e-mail @uel.br"}</div>
       </div>
       {success&&<div style={{fontSize:13,color:C.green,fontWeight:600,marginBottom:14,padding:"10px 14px",background:"#ECFDF5",borderRadius:9,textAlign:"center"}}>{success}</div>}
-      {mode==="signup"&&<Inp label="Nome completo" placeholder="Seu nome" value={name} onChange={(e: any)=>{setName(e.target.value);setError("");}}/>}
-      <Inp label="E-mail" type="email" placeholder="seu.nome@uel.br" value={email} onChange={(e: any)=>{setEmail(e.target.value);setError("");}} onKeyDown={(e: any)=>e.key==="Enter"&&(mode==="login"?handleLogin():handleSignup())}/>
+      {mode==="signup"&&<Inp label="Nome completo" placeholder="Seu nome" value={name} onChange={(e)=>{setName(e.target.value);setError("");}}/>}
+      <Inp label="E-mail" type="email" placeholder="seu.nome@uel.br" value={email} onChange={(e)=>{setEmail(e.target.value);setError("");}} onKeyDown={(e)=>e.key==="Enter"&&(mode==="login"?handleLogin():handleSignup())}/>
       <div style={{marginBottom:error?8:20}}>
         <FL>Senha</FL>
         <div style={{position:"relative"}}>
@@ -529,7 +529,7 @@ function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => v
           Manter o login neste aparelho
         </label>
       )}
-      {mode==="signup"&&<Inp label="Confirmar senha" type="password" placeholder="Repita a senha" value={pw2} onChange={(e: any)=>{setPw2(e.target.value);setError("");}}/>}
+      {mode==="signup"&&<Inp label="Confirmar senha" type="password" placeholder="Repita a senha" value={pw2} onChange={(e)=>{setPw2(e.target.value);setError("");}}/>}
       {error&&<div style={{fontSize:13,color:C.red,marginBottom:14,fontWeight:500}}>{error}</div>}
       <Btn full onClick={mode==="login"?handleLogin:handleSignup} disabled={loading}>{loading?(mode==="login"?"Entrando...":"Criando conta..."):(mode==="login"?"Entrar":"Criar conta")}</Btn>
       <button onClick={()=>{setMode(m=>m==="login"?"signup":"login");setError("");setSuccess("");}} style={{marginTop:16,background:"none",border:"none",cursor:"pointer",fontSize:13,color:C.blue,fontWeight:600}}>
@@ -540,7 +540,7 @@ function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => v
 }
 
 // ── Profile Screen ────────────────────────────────────────────
-function ProfileScreen({ user, onUpdate, onLogout, onBack }: any) {
+function ProfileScreen({ user, onUpdate, onLogout, onBack }) {
   const [name,setName]=useState(user.name||"");
   const [bio,setBio]=useState(user.bio||"");
   const [pw,setPw]=useState("");
@@ -548,18 +548,18 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }: any) {
   const [saved,setSaved]=useState(false);
   const [pwErr,setPwErr]=useState("");
   const [loading,setLoading]=useState(false);
-  const [cropSrc,setCropSrc]=useState<string | null>(null);
+  const [cropSrc,setCropSrc]=useState(null);
   const [cropAspect,setCropAspect]=useState("square");
   const [bannerColor,setBannerColor]=useState(user.bannerColor||C.blue);
-  const avatarRef=useRef<HTMLInputElement>(null);
-  const bannerRef=useRef<HTMLInputElement>(null);
+  const avatarRef=useRef(null);
+  const bannerRef=useRef(null);
 
-  function pickFile(ref: React.RefObject<HTMLInputElement | null>,aspect: string){setCropAspect(aspect);ref.current?.click();}
-  function onFileChange(e: any,aspect: string){
+  function pickFile(ref,aspect){setCropAspect(aspect);ref.current?.click();}
+  function onFileChange(e,aspect){
     const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();r.onload=ev=>{if (ev.target?.result) { setCropSrc(ev.target.result as string); setCropAspect(aspect); } };r.readAsDataURL(f);e.target.value="";
+    const r=new FileReader();r.onload=ev=>{if (ev.target?.result) { setCropSrc(ev.target.result); setCropAspect(aspect); } };r.readAsDataURL(f);e.target.value="";
   }
-  async function onCrop(blob: Blob){
+  async function onCrop(blob){
     const isAvatar=cropAspect==="square";
     const path=`${user.id}_${isAvatar?"avatar":"banner"}.jpg`;
     await supabase.storage.from("avatars").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
@@ -570,11 +570,11 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }: any) {
     onUpdate({[field]:url});
     setCropSrc(null);
   }
-  async function saveBannerColor(c: string){setBannerColor(c);await supabase.from("profiles").update({bannerColor:c}).eq("id",user.id);onUpdate({bannerColor:c});}
+  async function saveBannerColor(c){setBannerColor(c);await supabase.from("profiles").update({bannerColor:c}).eq("id",user.id);onUpdate({bannerColor:c});}
   async function handleSave(){
     if(pw&&pw!==pw2){setPwErr("As senhas não coincidem.");return;}
     setPwErr("");setLoading(true);
-    const initials=name.trim().split(" ").filter(Boolean).map((n: string)=>n[0]).join("").slice(0,2).toUpperCase();
+    const initials=name.trim().split(" ").filter(Boolean).map((n)=>n[0]).join("").slice(0,2).toUpperCase();
     await supabase.from("profiles").update({name,bio,initials}).eq("id",user.id);
     if(pw)await supabase.auth.updateUser({password:pw});
     onUpdate({name,bio,initials});setPw("");setPw2("");setLoading(false);setSaved(true);setTimeout(()=>setSaved(false),2500);
@@ -638,12 +638,12 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }: any) {
           </div>
         )}
         <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:1}}>Informações pessoais</div>
-        <Inp label="Nome completo" value={name} onChange={(e: any)=>setName(e.target.value)}/>
+        <Inp label="Nome completo" value={name} onChange={(e)=>setName(e.target.value)}/>
         <div style={{marginBottom:12}}><FL>E-mail</FL><div style={{padding:"11px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,fontSize:14,color:C.muted,background:"#f9fafb"}}>{user.email}</div></div>
-        <Txt label="Bio" value={bio} rows={3} onChange={(e: any)=>setBio(e.target.value)}/>
+        <Txt label="Bio" value={bio} rows={3} onChange={(e)=>setBio(e.target.value)}/>
         <div style={{fontSize:11,fontWeight:700,color:C.blue,margin:"4px 0 14px",textTransform:"uppercase",letterSpacing:1}}>Alterar senha</div>
-        <Inp label="Nova senha" type="password" placeholder="Deixe em branco para manter" value={pw} onChange={(e: any)=>{setPw(e.target.value);setPwErr("");}}/>
-        <Inp label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" value={pw2} onChange={(e: any)=>{setPw2(e.target.value);setPwErr("");}}/>
+        <Inp label="Nova senha" type="password" placeholder="Deixe em branco para manter" value={pw} onChange={(e)=>{setPw(e.target.value);setPwErr("");}}/>
+        <Inp label="Confirmar nova senha" type="password" placeholder="Repita a nova senha" value={pw2} onChange={(e)=>{setPw2(e.target.value);setPwErr("");}}/>
         {pwErr&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{pwErr}</div>}
         {saved&&<div style={{fontSize:13,color:C.green,fontWeight:600,marginBottom:10,textAlign:"center"}}>✓ Perfil atualizado!</div>}
         <Btn full onClick={handleSave} disabled={loading}>{loading?"Salvando...":"Salvar alterações"}</Btn>
@@ -655,12 +655,12 @@ function ProfileScreen({ user, onUpdate, onLogout, onBack }: any) {
 }
 
 // ── Demanda Detail ────────────────────────────────────────────
-function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }: any) {
+function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }) {
   const [editing,setEditing]=useState(false);
   const [form,setForm]=useState({...demanda});
-  const [anexos,setAnexos]=useState<any[]>([]);
+  const [anexos,setAnexos]=useState([]);
   const [uploading,setUploading]=useState(false);
-  const anexoRef=useRef<HTMLInputElement>(null);
+  const anexoRef=useRef(null);
 
   useEffect(()=>{supabase.from("anexos").select("*").eq("demanda_id",demanda.id).then(({data})=>setAnexos(data||[]));},[demanda.id]);
 
@@ -668,7 +668,7 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }: any) {
     const {data}=await supabase.from("demandas").update({titulo:form.titulo,descricao:form.descricao,obs:form.obs,resp:form.resp,prazo:form.prazo,status:form.status,prioridade:form.prioridade}).eq("id",demanda.id).select().single();
     onUpdate(data);setEditing(false);
   }
-  async function handleAnexo(e: any){
+  async function handleAnexo(e){
     const f=e.target.files[0];if(!f)return;setUploading(true);
     const path=`${demanda.id}/${Date.now()}_${f.name}`;
     await supabase.storage.from("anexos").upload(path,f);
@@ -698,17 +698,17 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }: any) {
         {editing?(
           <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.border}`,padding:16}}>
             <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:14}}>Editar demanda</div>
-            <Inp label="Título" value={form.titulo} onChange={(e: any)=>setForm((v: any)=>({...v,titulo:e.target.value}))}/>
-            <Inp label="Responsável" value={form.resp} onChange={(e: any)=>setForm((v: any)=>({...v,resp:e.target.value}))}/>
-            <Inp label="Prazo" type="date" value={form.prazo} onChange={(e: any)=>setForm((v: any)=>({...v,prazo:e.target.value}))}/>
-            <Sel label="Status" value={form.status} onChange={(e: any)=>setForm((v: any)=>({...v,status:e.target.value}))}>
+            <Inp label="Título" value={form.titulo} onChange={(e)=>setForm((v)=>({...v,titulo:e.target.value}))}/>
+            <Inp label="Responsável" value={form.resp} onChange={(e)=>setForm((v)=>({...v,resp:e.target.value}))}/>
+            <Inp label="Prazo" type="date" value={form.prazo} onChange={(e)=>setForm((v)=>({...v,prazo:e.target.value}))}/>
+            <Sel label="Status" value={form.status} onChange={(e)=>setForm((v)=>({...v,status:e.target.value}))}>
               {Object.entries(STATUS).map(([k,s])=><option key={k} value={k}>{s.label}</option>)}
             </Sel>
-            <Sel label="Prioridade" value={form.prioridade} onChange={(e: any)=>setForm((v: any)=>({...v,prioridade:e.target.value}))}>
+            <Sel label="Prioridade" value={form.prioridade} onChange={(e)=>setForm((v)=>({...v,prioridade:e.target.value}))}>
               {Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
             </Sel>
-            <Txt label="Descrição" value={form.descricao} rows={4} onChange={(e: any)=>setForm((v: any)=>({...v,descricao:e.target.value}))}/>
-            <Txt label="Observações" value={form.obs} rows={3} onChange={(e: any)=>setForm((v: any)=>({...v,obs:e.target.value}))}/>
+            <Txt label="Descrição" value={form.descricao} rows={4} onChange={(e)=>setForm((v)=>({...v,descricao:e.target.value}))}/>
+            <Txt label="Observações" value={form.obs} rows={3} onChange={(e)=>setForm((v)=>({...v,obs:e.target.value}))}/>
             <div style={{display:"flex",gap:8}}>
               <Btn onClick={save} style={{flex:1}}>Salvar</Btn>
               <Btn variant="secondary" onClick={()=>setEditing(false)} style={{flex:1}}>Cancelar</Btn>
@@ -752,20 +752,20 @@ function DemandaDetail({ demanda, canEdit, onUpdate, onDelete, onBack }: any) {
 }
 
 // ── Full Calendar ─────────────────────────────────────────────
-function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }: any) {
+function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }) {
   const year=2026;
   const [form,setForm]=useState(false);
   const [selectedDate,setSelectedDate]=useState("");
-  const [editing,setEditing]=useState<any>(null);
+  const [editing,setEditing]=useState(null);
   const [novo,setNovo]=useState({titulo:"",date:"",hora:"",local:""});
-  const eventMap: Record<string, any[]> = {};
-  eventos.forEach((ev: any)=>{
+  const eventMap = {};
+  eventos.forEach((ev)=>{
     const key=ev.data||ev.date;
     if(!eventMap[key])eventMap[key]=[];
     eventMap[key].push(ev);
   });
 
-  function openForm(date: string,ev: any=null){
+  function openForm(date,ev=null){
     if(!canManage)return;
     setSelectedDate(date);
     setEditing(ev);
@@ -785,7 +785,7 @@ function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }: any) {
     setNovo({titulo:"",date:"",hora:"",local:""});setEditing(null);setForm(false);
   }
 
-  async function remove(ev: any){
+  async function remove(ev){
     if(!window.confirm("Excluir este evento?"))return;
     const {error}=await supabase.from("eventos").delete().eq("id",ev.id);
     if(!error)onDelete(ev.id);
@@ -797,16 +797,16 @@ function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }: any) {
       {form&&(
         <div style={{margin:"0 20px 16px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
           <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>{editing?"Editar evento":"Novo evento"}</div>
-          <Inp label="Título" value={novo.titulo} onChange={(e: any)=>setNovo(v=>({...v,titulo:e.target.value}))}/>
-          <Inp label="Data" type="date" value={novo.date} onChange={(e: any)=>setNovo(v=>({...v,date:e.target.value}))}/>
-          <Inp label="Horário" type="time" value={novo.hora} onChange={(e: any)=>setNovo(v=>({...v,hora:e.target.value}))}/>
-          <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={(e: any)=>setNovo(v=>({...v,local:e.target.value}))}/>
+          <Inp label="Título" value={novo.titulo} onChange={(e)=>setNovo(v=>({...v,titulo:e.target.value}))}/>
+          <Inp label="Data" type="date" value={novo.date} onChange={(e)=>setNovo(v=>({...v,date:e.target.value}))}/>
+          <Inp label="Horário" type="time" value={novo.hora} onChange={(e)=>setNovo(v=>({...v,hora:e.target.value}))}/>
+          <Inp label="Local" placeholder="ex: Online" value={novo.local} onChange={(e)=>setNovo(v=>({...v,local:e.target.value}))}/>
           <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1}}>{editing?"Salvar":"Adicionar"}</Btn><Btn variant="secondary" onClick={()=>{setForm(false);setEditing(null);}} style={{flex:1}}>Cancelar</Btn></div>
         </div>
       )}
       {MONTHS.map((mName,mi)=>{
         const days=daysInMonth(year,mi),off=firstDay(year,mi);
-        const mEvts=eventos.filter((e: any)=>{const d=new Date((e.data||e.date)+"T00:00:00");return d.getFullYear()===year&&d.getMonth()===mi;});
+        const mEvts=eventos.filter((e)=>{const d=new Date((e.data||e.date)+"T00:00:00");return d.getFullYear()===year&&d.getMonth()===mi;});
         return (
           <div key={mi} style={{margin:"0 20px 20px",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:"14px 12px"}}>
             <div style={{fontSize:13,fontWeight:700,marginBottom:12,paddingLeft:2}}>{mName}</div>
@@ -827,7 +827,7 @@ function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }: any) {
             </div>
             {mEvts.length>0&&(
               <div style={{marginTop:10,borderTop:`1px solid ${C.border}`,paddingTop:10}}>
-                {mEvts.map((ev: any,i: number)=>(
+                {mEvts.map((ev,i)=>(
                   <div key={ev.id}>
                     <div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 2px"}}>
                       <div style={{minWidth:28,height:28,borderRadius:7,background:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,fontWeight:800,color:C.blue}}>{new Date((ev.data||ev.date)+"T00:00:00").getDate()}</span></div>
@@ -850,7 +850,7 @@ function FullCalendar({ eventos, canManage, onAdd, onUpdate, onDelete }: any) {
 }
 
 // ── Nav Tab ───────────────────────────────────────────────────
-function NavTab({active,icon,label,onClick}: any){
+function NavTab({active,icon,label,onClick,...rest}){
   return(
     <button onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"4px 12px",transition:"transform .15s",transform:active?"translateY(-2px)":"none"}}>
       <div style={{width:40,height:32,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:active?C.blueSoft:"transparent",transition:"background .2s"}}>
@@ -863,22 +863,22 @@ function NavTab({active,icon,label,onClick}: any){
 
 // ── Main App ──────────────────────────────────────────────────
 export default function App() {
-  const [user,     setUser]    = useState<any>(null);
+  const [user,     setUser]    = useState(null);
   const [loading,  setLoading] = useState(true);
   const [tab,      setTab]     = useState("inicio");
   const [screen,   setScreen]  = useState("app");
   const [drawer,   setDrawer]  = useState(false); // menu lateral
-  const [demandas, setDemandas]= useState<any[]>([]);
-  const [eventos,  setEventos] = useState<any[]>([]);
-  const [materiais,setMateriais]=useState<Record<string, any[]>>({});
-  const [openFolder,setFolder] = useState<string | null>(null);
-  const [selectedD,setSelectedD]=useState<string | null>(null);
+  const [demandas, setDemandas]= useState([]);
+  const [eventos,  setEventos] = useState([]);
+  const [materiais,setMateriais]=useState({});
+  const [openFolder,setFolder] = useState(null);
+  const [selectedD,setSelectedD]=useState(null);
   const [dForm,    setDForm]   = useState(false);
   const [dNovo,    setDNovo]   = useState({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});
-  const [members,  setMembers] = useState<any[]>([]);
+  const [members,  setMembers] = useState([]);
   const [membersTab,setMembersTab]=useState(false);
-  const uploadRef = useRef<HTMLInputElement>(null);
-  const [uploadArea,setUploadArea]=useState<string | null>(null);
+  const uploadRef = useRef(null);
+  const [uploadArea,setUploadArea]=useState(null);
   const [appError,setAppError]=useState("");
 
   useEffect(()=>{
@@ -890,7 +890,7 @@ export default function App() {
         let {data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
         if(!p){
           // Se o perfil não existir por algum problema anterior, criamos ele sob demanda aqui também
-          const fallbackName = (session.user.user_metadata?.name as string) || (session.user.email || "Membro").split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+          const fallbackName = session.user.user_metadata?.name || (session.user.email || "Membro").split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
           const initials = fallbackName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
           const newProfile = {
             id: session.user.id,
@@ -929,20 +929,20 @@ export default function App() {
   function loadAll(){loadDemandas();loadEventos();loadMateriais();loadMembers();}
   async function loadDemandas(){const {data,error}=await supabase.from("demandas").select("*").order("criado_em",{ascending:false});if(error){setAppError("Não foi possível carregar as demandas.");return;}setDemandas(data||[]);}
   async function loadEventos(){const {data,error}=await supabase.from("eventos").select("*").order("data");if(error){setAppError("Não foi possível carregar a agenda.");return;}setEventos(data||[]);}
-  async function loadMateriais(){const {data,error}=await supabase.from("materiais").select("*").order("criado_em");if(error){setAppError("Não foi possível carregar os materiais.");return;}const g: Record<string, any[]>={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
+  async function loadMateriais(){const {data,error}=await supabase.from("materiais").select("*").order("criado_em");if(error){setAppError("Não foi possível carregar os materiais.");return;}const g={};AREAS.forEach(a=>g[a]=[]);(data||[]).forEach(m=>{if(g[m.area])g[m.area].push(m);});setMateriais(g);}
   async function loadMembers(){const {data,error}=await supabase.from("profiles").select("*").order("name");if(error){setAppError("Não foi possível carregar os membros.");return;}setMembers(data||[]);}
-  async function updateMemberRole(id: string,role: string,area: string){const {error}=await supabase.from("profiles").update({role,area}).eq("id",id);if(error){setAppError("Não foi possível atualizar este membro.");return;}setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
-  async function handleUpload(e: any){const f=e.target.files[0];if(!f||!uploadArea)return;setAppError("");const path=`${uploadArea}/${Date.now()}_${f.name}`;const {error:uploadError}=await supabase.storage.from("materiais").upload(path,f);if(uploadError){setAppError("Não foi possível enviar o arquivo.");e.target.value="";return;}const {data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const {error:insertError}=await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});if(insertError){setAppError("Arquivo enviado, mas não foi possível salvar na lista de materiais.");e.target.value="";return;}setUploadArea(null);e.target.value="";loadMateriais();}
+  async function updateMemberRole(id,role,area){const {error}=await supabase.from("profiles").update({role,area}).eq("id",id);if(error){setAppError("Não foi possível atualizar este membro.");return;}setMembers(p=>p.map(m=>m.id===id?{...m,role,area}:m));}
+  async function handleUpload(e){const f=e.target.files[0];if(!f||!uploadArea)return;setAppError("");const path=`${uploadArea}/${Date.now()}_${f.name}`;const {error:uploadError}=await supabase.storage.from("materiais").upload(path,f);if(uploadError){setAppError("Não foi possível enviar o arquivo.");e.target.value="";return;}const {data:u}=supabase.storage.from("materiais").getPublicUrl(path);const ext=f.name.split(".").pop().toUpperCase();const tam=f.size>1024*1024?`${(f.size/1024/1024).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;const {error:insertError}=await supabase.from("materiais").insert({nome:f.name,tipo:ext,tamanho:tam,area:uploadArea,url:u.publicUrl,criado_por:user.id});if(insertError){setAppError("Arquivo enviado, mas não foi possível salvar na lista de materiais.");e.target.value="";return;}setUploadArea(null);e.target.value="";loadMateriais();}
   async function addDemanda(){if(!dNovo.titulo||!dNovo.prazo||!dNovo.resp){setAppError("Preencha título, responsável e prazo da demanda.");return;}setAppError("");const area=canSeeAll(user)?dNovo.area||AREAS[0]:user.area;const {error}=await supabase.from("demandas").insert({...dNovo,area,criado_por:user.id});if(error){setAppError("Não foi possível criar a demanda.");return;}setDNovo({titulo:"",resp:"",prazo:"",area:"",status:"pendente",prioridade:"media",descricao:"",obs:""});setDForm(false);loadDemandas();}
   async function logout(){localStorage.removeItem("bc_keep_login");await supabase.auth.signOut();setUser(null);setScreen("app");setTab("inicio");setDrawer(false);}
 
   // ── loading / auth guards ─────────────────────────────────
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.white}}><Spinner/></div>;
   if(!user)return<AuthScreen onLogin={(u,keepLogin)=>{localStorage.setItem("bc_keep_login",keepLogin?"true":"false");setUser(u);setTab("inicio");setScreen("app");}}/>;
-  if(screen==="profile")return<ProfileScreen user={user} onUpdate={(u: any)=>setUser((p: any)=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
+  if(screen==="profile")return<ProfileScreen user={user} onUpdate={(u)=>setUser((p)=>({...p,...u}))} onLogout={logout} onBack={()=>setScreen("app")}/>;
   if(screen==="demanda"&&selectedD){
     const d=demandas.find(x=>x.id===selectedD);
-    if(d)return<DemandaDetail demanda={d} canEdit={canManage(user)} onUpdate={(u: any)=>setDemandas(p=>p.map(x=>x.id===u.id?u:x))} onDelete={async()=>{await supabase.from("demandas").delete().eq("id",d.id);setDemandas(p=>p.filter(x=>x.id!==d.id));setScreen("app");setSelectedD(null);}} onBack={()=>{setScreen("app");setSelectedD(null);}}/>;
+    if(d)return<DemandaDetail demanda={d} canEdit={canManage(user)} onUpdate={(u)=>setDemandas(p=>p.map(x=>x.id===u.id?u:x))} onDelete={async()=>{await supabase.from("demandas").delete().eq("id",d.id);setDemandas(p=>p.filter(x=>x.id!==d.id));setScreen("app");setSelectedD(null);}} onBack={()=>{setScreen("app");setSelectedD(null);}}/>;
   }
 
   const myDemandas  = canSeeAll(user)?demandas:demandas.filter(d=>d.area===user.area);
@@ -956,7 +956,7 @@ export default function App() {
   const totalConcluidas= myDemandas.filter(d=>d.status==="concluido").length;
 
   const TABS=[{id:"inicio",label:"Início",icon:Ic.home},{id:"demandas",label:"Demandas",icon:Ic.check},{id:"calendario",label:"Agenda",icon:Ic.cal},{id:"materiais",label:"Materiais",icon:Ic.folder}];
-  const TAB_LABEL: Record<string, string>={inicio:"Painel",demandas:"Demandas",calendario:"Agenda",materiais:"Materiais"};
+  const TAB_LABEL={inicio:"Painel",demandas:"Demandas",calendario:"Agenda",materiais:"Materiais"};
 
   return (
     <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",maxWidth:430,margin:"0 auto",color:C.text,position:"relative",overflow:"hidden"}}>
@@ -1016,7 +1016,7 @@ export default function App() {
                   {["presidente","vice","diretor","membro"].map(role=>{
                     const group=members.filter(m=>m.role===role);
                     if(!group.length)return null;
-                    const rl: Record<string, string>={presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
+                    const rl={presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
                     return(
                       <div key={role}>
                         <div style={{padding:"12px 16px 6px"}}><span style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{rl[role]}</span></div>
@@ -1172,18 +1172,18 @@ export default function App() {
           {dForm&&canManage(user)&&(
             <div style={{margin:"12px 20px 0",background:C.white,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
               <div style={{fontSize:13,fontWeight:700,color:C.blue,marginBottom:12}}>Nova demanda</div>
-              <Inp label="Título" value={dNovo.titulo} onChange={(e: any)=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
-              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={(e: any)=>setDNovo(v=>({...v,area:e.target.value,resp:""}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
-              <Sel label="Responsável" value={dNovo.resp} onChange={(e: any)=>setDNovo(v=>({...v,resp:e.target.value}))}>
+              <Inp label="Título" value={dNovo.titulo} onChange={(e)=>setDNovo(v=>({...v,titulo:e.target.value}))}/>
+              {canSeeAll(user)&&<Sel label="Área" value={dNovo.area||AREAS[0]} onChange={(e)=>setDNovo(v=>({...v,area:e.target.value,resp:""}))}>{AREAS.map(a=><option key={a}>{a}</option>)}</Sel>}
+              <Sel label="Responsável" value={dNovo.resp} onChange={(e)=>setDNovo(v=>({...v,resp:e.target.value}))}>
                 <option value="">Selecione um assessor</option>
                 {members
                   .filter(m=>m.role==="membro"&&m.area===(canSeeAll(user)?dNovo.area||AREAS[0]:user.area))
                   .map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
               </Sel>
-              <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={(e: any)=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
-              <Sel label="Prioridade" value={dNovo.prioridade} onChange={(e: any)=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
-              <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={(e: any)=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
-              <Txt label="Observações" value={dNovo.obs} rows={2} onChange={(e: any)=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
+              <Inp label="Prazo" type="date" value={dNovo.prazo} onChange={(e)=>setDNovo(v=>({...v,prazo:e.target.value}))}/>
+              <Sel label="Prioridade" value={dNovo.prioridade} onChange={(e)=>setDNovo(v=>({...v,prioridade:e.target.value}))}>{Object.entries(PRIORIDADE).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}</Sel>
+              <Txt label="Descrição" value={dNovo.descricao} rows={3} onChange={(e)=>setDNovo(v=>({...v,descricao:e.target.value}))} placeholder="Descreva o que precisa ser feito..."/>
+              <Txt label="Observações" value={dNovo.obs} rows={2} onChange={(e)=>setDNovo(v=>({...v,obs:e.target.value}))} placeholder="Observações adicionais..."/>
               <div style={{display:"flex",gap:8}}><Btn onClick={addDemanda} style={{flex:1}}>Criar</Btn><Btn variant="secondary" onClick={()=>setDForm(false)} style={{flex:1}}>Cancelar</Btn></div>
             </div>
           )}
@@ -1214,7 +1214,7 @@ export default function App() {
         </>)}
 
         {/* CALENDÁRIO */}
-        {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={(ev: any)=>setEventos(p=>[...p,ev])} onUpdate={(ev: any)=>setEventos(p=>p.map(x=>x.id===ev.id?ev:x))} onDelete={(id: string)=>setEventos(p=>p.filter(x=>x.id!==id))}/>}
+        {tab==="calendario"&&<FullCalendar eventos={eventos} canManage={canManage(user)} onAdd={(ev)=>setEventos(p=>[...p,ev])} onUpdate={(ev)=>setEventos(p=>p.map(x=>x.id===ev.id?ev:x))} onDelete={(id)=>setEventos(p=>p.filter(x=>x.id!==id))}/>}
 
         {/* MATERIAIS */}
         {tab==="materiais"&&(<>
