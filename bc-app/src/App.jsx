@@ -470,20 +470,20 @@ function AuthScreen({ onLogin }) {
   }
 
   async function handleSignup() {
- if(!name||!email||!pw||!pw2){setError("Preencha todos os campos.");return;}\
-    if(!email.endsWith("@uel.br")){setError("Use seu e-mail institucional (@uel.br).");return;}\
-    if(pw!==pw2){setError("As senhas nao coincidem.");return;}\
-    if(pw.length<6){setError("Minimo 6 caracteres.");return;}\
-    setError("");setLoading(true);\
-    const {data,error:err}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password:pw});\
-    if(err){setError(err.message);setLoading(false);return;}\
-    const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();\
-    const profile={id:data.user.id,name:name.trim(),initials,area:"Gestao de Pessoas",role:"membro",bio:"",avatar:""};\
-    await supabase.from("profiles").insert(profile);\
-    const {data:ld,error:le}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password:pw});\
-    if(le){setLoading(false);setSuccess("Conta criada! Agora entre com seu e-mail e senha.");setMode("login");return;}\
-    onLogin({...profile,email:ld.user.email},false);\
-  }'
+ if(!name||!email||!pw||!pw2){setError("Preencha todos os campos.");return;}
+    if(!email.endsWith("@uel.br")){setError("Use seu e-mail institucional (@uel.br).");return;}
+    if(pw!==pw2){setError("As senhas nao coincidem.");return;}
+    if(pw.length<6){setError("Minimo 6 caracteres.");return;}
+    setError("");setLoading(true);
+    const {data,error:err}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password:pw});
+    if(err){setError(err.message);setLoading(false);return;}
+    const initials=name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
+    const profile={id:data.user.id,name:name.trim(),initials,area:"Gestao de Pessoas",role:"membro",bio:"",avatar:""};
+    await supabase.from("profiles").insert(profile);
+    const {data:ld,error:le}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password:pw});
+    if(le){setLoading(false);setSuccess("Conta criada! Agora entre com seu e-mail e senha.");setMode("login");return;}
+    onLogin({...profile,email:ld.user.email},false);
+  }
     
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",background:C.white,padding:"0 28px",fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
