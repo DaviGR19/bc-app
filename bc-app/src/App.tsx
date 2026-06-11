@@ -274,39 +274,26 @@ function BannerCropper({ src, onCrop, onCancel }: { src: string; onCrop: (blob: 
   const [ready, setReady] = useState(false);
   const dragRef = useRef<any>(null);
 
- useEffect(()=>{
-    supabase.auth.getSession().then(async({data:{session}})=>{
-      const keepLogin=localStorage.getItem("bc_keep_login")==="true";
-      if(session&&!keepLogin){
-        await supabase.auth.signOut();
-      } else if(session){
-        let {data:p}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
-        if(!p){
-          // Criação sob demanda para sanar RLS se necessário
-          const fallbackName = (session.user.user_metadata?.name) || (session.user.email || "Membro").split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-          const initials = fallbackName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
-          const newProfile = {
-            id: session.user.id,
-            name: fallbackName,
-            initials,
-            area: "Gestão de Pessoas",
-            role: "membro",
-            bio: "",
-            avatar: ""
-          };
-          const { error: insErr } = await supabase.from("profiles").insert(newProfile);
-          if (!insErr) {
-            p = newProfile;
-          } else {
-            console.error("Erro ao resgatar perfil em getSession:", insErr);
-            p = newProfile;
-          }
-        }
-        if(p)setUser({...p,email:session.user.email});
-      }
-      setLoading(false);
-    });
-  },[]);
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => {
+      setImgNaturalSize({ w: img.width, h: img.height });
+      const maxW = 320, maxH = 280;
+      const ratio = Math.min(maxW / img.width, maxH / img.height);
+      const dw = Math.round(img.width * ratio);
+      const dh = Math.round(img.height * ratio);
+      const dx = Math.round((maxW - dw) / 2);
+      const dy = Math.round((maxH - dh) / 2);
+      setImgDisplayed({ x: dx, y: dy, w: dw, h: dh });
+      const cw = Math.min(dw, Math.round(dh * RATIO));
+      const ch = Math.round(cw / RATIO);
+      const cx = dx + Math.round((dw - cw) / 2);
+      const cy = dy + Math.round((dh - ch) / 2);
+      setCrop({ x: cx, y: cy, w: cw, h: ch });
+      setReady(true);
+    };
+    img.src = src;
+  }, [src]);
 
   function clampCrop(x: number, y: number, w: number, im?: any) {
     const img = im || imgDisplayed;
@@ -425,17 +412,16 @@ function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => v
   const [loading,setLoading]=useState(false);
   const [success,setSuccess]=useState("");
 
- async function handleLogin() {
+  async function handleLogin() {
     if(!email||!pw){setError("Preencha e-mail e senha.");return;}
     if(!email.endsWith("@uel.br")){setError("Use seu e-mail institucional (@uel.br).");return;}
     setError("");setLoading(true);
     const {data,error:err}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password:pw});
     if(err){setError("E-mail ou senha incorretos.");setLoading(false);return;}
-    
     let {data:p}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
     if (!p) {
-      // Criação sob demanda para sanar RLS e falhas de trigger
-      const fallbackName = (data.user.user_metadata?.name) || email.split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+      // Se por algum motivo o perfil não tenha sido criado no cadastro (ex: RLS, e-mail pendente), criamos aqui
+      const fallbackName = (data.user.user_metadata?.name as string) || email.split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
       const initials = fallbackName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase();
       const newProfile = {
         id: data.user.id,
@@ -450,21 +436,22 @@ function AuthScreen({ onLogin }: { onLogin: (user: any, keepLogin: boolean) => v
       if (!insErr) {
         p = newProfile;
       } else {
-        console.error("Erro RLS ao inserir perfil sob demanda:", insErr);
+        console.error("Erro de RLS ou inserção ao criar perfil sob demanda:", insErr);
+        // Mesmo se falhar, definimos um perfil temporário para não quebrar a sessão
         p = newProfile;
       }
     }
     onLogin({...p,email:data.user.email},keepLogin);
   }
 
-async function handleSignup() {
+  async function handleSignup() {
     if(!name||!email||!pw||!pw2){setError("Preencha todos os campos.");return;}
     if(!email.endsWith("@uel.br")){setError("Use seu e-mail institucional (@uel.br).");return;}
     if(pw!==pw2){setError("As senhas não coincidem.");return;}
     if(pw.length<6){setError("Mínimo 6 caracteres na senha.");return;}
     setError("");setLoading(true);
 
-    // 1. Criar usuário no Supabase Auth
+    // 1. Criar o usuário no Supabase Auth com metadados para redundância
     const { data, error: authError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password: pw,
@@ -485,31 +472,6 @@ async function handleSignup() {
       setLoading(false);
       return;
     }
-
-    // 2. Calcular iniciais
-    const initials = name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
-
-    // 3. Criar registro correspondente em profiles
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .insert({
-        id: data.user.id,
-        name: name.trim(),
-        initials,
-        area: "Gestão de Pessoas",
-        role: "membro",
-        bio: "",
-        avatar: ""
-      });
-
-    if (profileError) {
-      console.warn("Aviso ao criar perfil na tabela (comum se confirmação de e-mail estiver ativa):", profileError);
-    }
-
-    setLoading(false);
-    setSuccess("Conta criada! Se a confirmação de e-mail estiver ativa no seu console Supabase, verifique sua caixa de entrada.");
-    setMode("login");
-  }
 
     // 2. Calcular as iniciais
     const initials = name.trim().split(" ").filter(Boolean).map(n=>n[0]).join("").slice(0,2).toUpperCase();
@@ -1090,47 +1052,6 @@ export default function App() {
                   {/* Grupo fallback para papéis não mapeados, nulos ou pendentes de aprovação */}
                   {(() => {
                     const fallbackGroup = members.filter(m => !m.role || !["presidente", "vice", "diretor", "membro"].includes(m.role.toLowerCase()));
-                  /* Substitua o bloco antigo de listagem de membros ou adicione o bloco abaixo logo após o fechamento do map original */
-                  {["presidente","vice","diretor","membro"].map(role=>{
-                    const group=members.filter(m=>m.role===role);
-                    if(!group.length)return null;
-                    const rl={presidente:"Presidência",vice:"Vice-Presidência",diretor:"Diretores",membro:"Assessores"};
-                    return(
-                      <div key={role}>
-                        <div style={{padding:"12px 16px 6px"}}><span style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:C.muted,textTransform:"uppercase"}}>{rl[role]}</span></div>
-                        {group.map((m,i)=>(
-                          <div key={m.id} style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:user.role==="presidente"&&m.id!==user.id?8:0}}>
-                              <Avatar user={m} size={36}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
-                                <div style={{fontSize:11,color:C.sub,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.area}</div>
-                              </div>
-                            </div>
-                            {user.role==="presidente"&&m.id!==user.id&&(
-                              <div style={{display:"flex",gap:6}}>
-                                <select defaultValue={m.role} onChange={e=>updateMemberRole(m.id,e.target.value,m.area)}
-                                  style={{flex:1,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  <option value="membro">Assessor(a)</option>
-                                  <option value="diretor">Diretor(a)</option>
-                                  <option value="vice">Vice-Presidente</option>
-                                  <option value="presidente">Presidente</option>
-                                </select>
-                                <select defaultValue={m.area} onChange={e=>updateMemberRole(m.id,m.role,e.target.value)}
-                                  style={{flex:2,padding:"6px 8px",borderRadius:7,border:`1px solid ${C.border}`,fontSize:12,color:C.text,background:C.bg}}>
-                                  {["Presidência",...AREAS].map(a=><option key={a}>{a}</option>)}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-
-                  {/* NOVO: Grupo fallback para membros com dados pendentes no banco ou sem cargo atribuído */}
-                  {(() => {
-                    const fallbackGroup = members.filter(m => !m.role || !["presidente", "vice", "diretor", "membro"].includes(m.role.toLowerCase()));
                     if (!fallbackGroup.length) return null;
                     return (
                       <div key="outros">
@@ -1164,6 +1085,12 @@ export default function App() {
                       </div>
                     );
                   })()}
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── Header ── */}
       <div style={{position:"sticky",top:0,zIndex:40,background:C.white,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
